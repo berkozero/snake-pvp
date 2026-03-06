@@ -96,7 +96,7 @@ export default function SnakeWordmark({ className }: SnakeWordmarkProps) {
   return (
     <svg
       className={className}
-      viewBox="0 0 810 260"
+      viewBox="14 14 790 220"
       role="img"
       aria-label="Snake"
       xmlns="http://www.w3.org/2000/svg"

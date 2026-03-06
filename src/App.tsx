@@ -464,7 +464,22 @@ export default function App() {
 
   return (
     <main className="shell" data-phase={snapshot.phase}>
-      <section className="arena-card">
+      {showLobbyOverlay ? (
+        <section className="menu-hero" data-testid="lobby-overlay">
+          <SnakeWordmark className="menu-wordmark" />
+          <p className="menu-tagline">Three minutes. Outgrow or outcut.</p>
+          <button
+            data-testid="start-match"
+            className="start-button"
+            onClick={() => sendMessage({ type: 'start_match', requestId: nextRequestId() })}
+            disabled={!canStart}
+          >
+            Start Match
+          </button>
+        </section>
+      ) : null}
+
+      <section className="arena-card" style={showLobbyOverlay ? { display: 'none' } : undefined}>
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
@@ -472,27 +487,6 @@ export default function App() {
           className="arena"
           data-testid="game-canvas"
         />
-
-        {showLobbyOverlay ? (
-          <div className="overlay menu-overlay" data-testid="lobby-overlay">
-            <SnakeWordmark className="menu-wordmark" />
-            <h2>Three minutes. Outgrow or outcut.</h2>
-            <div className="controls-grid">
-              <p><span>Movement</span> Arrow Keys</p>
-              <p><span>Players</span> Same controls on each client</p>
-              <p><span>Server</span> Railway match server</p>
-              <p><span>Start</span> Enter / button</p>
-            </div>
-            <button
-              data-testid="start-match"
-              className="start-button"
-              onClick={() => sendMessage({ type: 'start_match', requestId: nextRequestId() })}
-              disabled={!canStart}
-            >
-              Start Match
-            </button>
-          </div>
-        ) : null}
 
         {snapshot.phase === 'countdown' ? (
           <div className="overlay slim" data-testid="countdown-overlay">
@@ -530,21 +524,21 @@ export default function App() {
         </div>
         <div className="players-grid">
           <article className="player-slot-card p1-slot" data-testid="slot-p1">
-            <span>P1</span>
-            <strong>{getPlayerName(snapshot, 'p1')}</strong>
-            <small>{snapshot.slots.p1.claimed ? (snapshot.slots.p1.connected ? 'Connected' : 'Reserved') : 'Open'}</small>
-            <label className="name-field player-name-field">
-              <span>Nametag</span>
-              <input
-                data-testid="name-input-p1"
-                value={p1Name}
-                maxLength={16}
-                onChange={(event) => setP1Name(event.target.value)}
-                placeholder="Enter handle"
-                disabled={!canClaim || !showPlayerClaims}
-              />
-            </label>
-            {showPlayerClaims ? (
+            <div className="slot-row">
+              <strong>{getPlayerName(snapshot, 'p1')}</strong>
+              {!snapshot.slots.p1.claimed ? (
+                <input
+                  className="slot-input"
+                  data-testid="name-input-p1"
+                  value={p1Name}
+                  maxLength={16}
+                  onChange={(event) => setP1Name(event.target.value)}
+                  placeholder="Enter handle"
+                  disabled={!canClaim || !showPlayerClaims}
+                />
+              ) : null}
+            </div>
+            {showPlayerClaims && snapshot.yourSlot !== 'p1' ? (
               <button
                 data-testid="claim-p1"
                 onClick={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p1', name: p1Name })}
@@ -569,21 +563,21 @@ export default function App() {
             ) : null}
           </article>
           <article className="player-slot-card alt" data-testid="slot-p2">
-            <span>P2</span>
-            <strong>{getPlayerName(snapshot, 'p2')}</strong>
-            <small>{snapshot.slots.p2.claimed ? (snapshot.slots.p2.connected ? 'Connected' : 'Reserved') : 'Open'}</small>
-            <label className="name-field player-name-field">
-              <span>Nametag</span>
-              <input
-                data-testid="name-input-p2"
-                value={p2Name}
-                maxLength={16}
-                onChange={(event) => setP2Name(event.target.value)}
-                placeholder="Enter handle"
-                disabled={!canClaim || !showPlayerClaims}
-              />
-            </label>
-            {showPlayerClaims ? (
+            <div className="slot-row">
+              <strong>{getPlayerName(snapshot, 'p2')}</strong>
+              {!snapshot.slots.p2.claimed ? (
+                <input
+                  className="slot-input"
+                  data-testid="name-input-p2"
+                  value={p2Name}
+                  maxLength={16}
+                  onChange={(event) => setP2Name(event.target.value)}
+                  placeholder="Enter handle"
+                  disabled={!canClaim || !showPlayerClaims}
+                />
+              ) : null}
+            </div>
+            {showPlayerClaims && snapshot.yourSlot !== 'p2' ? (
               <button
                 data-testid="claim-p2"
                 className="secondary"
@@ -609,21 +603,46 @@ export default function App() {
             ) : null}
           </article>
         </div>
-      </section>
-
-      <section className="footer-card">
-        <div>
-          <span>Cut Rule</span>
-          <strong>Hit body segments, not head or neck</strong>
-        </div>
-        <div>
-          <span>Deaths</span>
-          <strong>Walls, self, bad collisions</strong>
-        </div>
-        <div>
-          <span>Tiebreak</span>
-          <strong>Score, then current length</strong>
-        </div>
+        <section className="how-to-play how-to-play-panel" aria-label="How to play">
+          <h3>How to Play</h3>
+          <ul className="how-to-play-list">
+            <li>
+              <strong>[+]</strong>
+              <span>Claim a side</span>
+              <span>Choose P1 or P2, enter a handle, and lock in your slot.</span>
+            </li>
+            <li>
+              <strong>[+]</strong>
+              <span>Start the round</span>
+              <span>When both players connect, press Enter or use the start button.</span>
+            </li>
+            <li>
+              <strong>[+]</strong>
+              <span>Move with arrows</span>
+              <span>Each player uses the arrow keys on their own browser window.</span>
+            </li>
+            <li>
+              <strong>[+]</strong>
+              <span>Score and grow</span>
+              <span>Collect food to gain points and add length before time runs out.</span>
+            </li>
+            <li>
+              <strong>[+]</strong>
+              <span>Cut legally</span>
+              <span>Hit enemy body segments only. Head and neck do not count as valid cuts.</span>
+            </li>
+            <li>
+              <strong>[+]</strong>
+              <span>Stay alive</span>
+              <span>Deaths come from walls, your own body, or losing bad collisions.</span>
+            </li>
+            <li>
+              <strong>[+]</strong>
+              <span>Win the tiebreak</span>
+              <span>Final result is score first, then current length if score is tied.</span>
+            </li>
+          </ul>
+        </section>
       </section>
     </main>
   );

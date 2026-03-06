@@ -11,10 +11,8 @@
   --bright-2: #56a8ff;
   --accent: #ff9e3b;
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
-  --display-font: Impact, Haettenschweiler, "Arial Black", sans-serif;
-  --ui-font: "Lucida Console", "Courier New", monospace;
-  --mono-font: "Lucida Console", "Courier New", monospace;
-  font-family: var(--ui-font);
+  --font: "Space Mono", "Lucida Console", "Courier New", monospace;
+  font-family: var(--font);
 }
 
 * {
@@ -42,7 +40,7 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 700;
-  font-family: var(--mono-font);
+  font-family: var(--font);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
@@ -121,7 +119,7 @@ button.secondary {
   line-height: 0.88;
   letter-spacing: 0;
   text-wrap: balance;
-  font-family: var(--display-font);
+  font-family: var(--font);
   text-transform: uppercase;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
@@ -147,7 +145,7 @@ button.secondary {
   text-transform: uppercase;
   letter-spacing: 0.22em;
   font-size: 0.74rem;
-  font-family: var(--mono-font);
+  font-family: var(--font);
 }
 
 .controls-grid,
@@ -185,13 +183,13 @@ button.secondary {
   letter-spacing: 0.18em;
   font-size: 0.68rem;
   margin-bottom: 6px;
-  font-family: var(--mono-font);
+  font-family: var(--font);
 }
 
 .players-card-header strong,
 .footer-card strong {
   font-size: 1.05rem;
-  font-family: var(--ui-font);
+  font-family: var(--font);
   letter-spacing: 0;
 }
 
@@ -229,14 +227,100 @@ button.secondary {
   backdrop-filter: blur(3px);
 }
 
-.menu-overlay {
-  justify-items: center;
-  gap: 18px;
-  padding-block: 34px;
+.menu-hero {
+  width: min(100%, 980px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 48px 24px 0;
+}
+
+.menu-tagline {
+  margin: 12px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font);
+  font-weight: 400;
+}
+
+.menu-hero .start-button {
+  min-width: 180px;
+  margin: 12px 0 0;
+}
+
+.how-to-play {
+  width: min(100%, 860px);
+  padding: 24px 28px;
+  border: 1px solid rgba(196, 196, 205, 0.14);
+  background:
+    linear-gradient(180deg, rgba(10, 10, 14, 0.96), rgba(5, 5, 9, 0.98)),
+    var(--panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.how-to-play-panel {
+  width: 100%;
+  max-width: none;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background:
+    linear-gradient(180deg, rgba(10, 10, 14, 0.9), rgba(6, 6, 10, 0.96)),
+    var(--panel);
+}
+
+.how-to-play h3 {
+  margin: 0 0 18px;
+  font-size: clamp(1.15rem, 2.2vw, 1.7rem);
+  letter-spacing: 0.03em;
+  font-family: var(--font);
+  text-align: center;
+}
+
+.how-to-play-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.how-to-play-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 220px) minmax(0, 1fr);
+  gap: 12px 18px;
+  align-items: start;
+  color: var(--text);
+}
+
+.how-to-play-list li strong {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.how-to-play-list li span {
+  display: block;
+}
+
+.how-to-play-list li span:first-of-type {
+  font-weight: 700;
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
+}
+
+.how-to-play-list li span:last-of-type {
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .menu-wordmark {
-  width: min(100%, 860px);
+  width: 100%;
   height: auto;
   display: block;
 }
@@ -270,7 +354,7 @@ button.secondary {
 
 .controls-grid p,
 .footer-card div {
-  font-family: var(--ui-font);
+  font-family: var(--font);
   font-weight: 700;
 }
 
@@ -302,7 +386,7 @@ button.secondary {
 
 .players-title strong {
   font-size: 1.55rem;
-  font-family: var(--ui-font);
+  font-family: var(--font);
   letter-spacing: 0;
 }
 
@@ -367,7 +451,7 @@ button.secondary {
 
 .player-slot-card strong {
   font-size: 1.05rem;
-  font-family: var(--ui-font);
+  font-family: var(--font);
   letter-spacing: 0;
 }
 
@@ -388,9 +472,31 @@ button.secondary {
   color: var(--bright-2);
 }
 
-.player-name-field {
-  width: 100%;
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slot-row strong {
+  flex-shrink: 0;
+}
+
+.slot-input {
+  flex: 1;
   min-width: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(236, 236, 242, 0.18);
+  background: rgba(6, 6, 10, 0.95);
+  color: var(--text);
+  border-radius: 2px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.slot-input:focus {
+  outline: 1px solid rgba(255, 158, 59, 0.55);
+  border-color: rgba(255, 158, 59, 0.55);
 }
 
 .footer-card {
@@ -437,6 +543,10 @@ button.secondary {
     padding: 18px 18px 16px;
   }
 
+  .how-to-play-panel {
+    border-top: 1px solid rgba(196, 196, 205, 0.14);
+  }
+
 }
 
 @media (max-width: 640px) {
@@ -445,18 +555,21 @@ button.secondary {
     gap: 14px;
   }
 
-  .menu-overlay {
-    gap: 16px;
+  .menu-hero {
+    padding: 0 14px;
+  }
+
+  .how-to-play {
     padding: 18px;
   }
 
-  .menu-wordmark {
-    width: min(100%, 620px);
+  .how-to-play-list li {
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
   }
 
-  .menu-overlay h2 {
-    max-width: 16ch;
-    font-size: clamp(1.15rem, 6.5vw, 1.85rem);
+  .how-to-play-list li span:last-of-type {
+    grid-column: 2;
   }
 
   .arena-card {
