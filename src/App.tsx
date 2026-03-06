@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE, MATCH_DURATION_MS } from './game/constants';
+import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE } from './game/constants';
 import { formatTime } from './game/engine';
 import type { Cell, PlayerId } from './game/types';
 import {
@@ -464,6 +464,36 @@ export default function App() {
 
   return (
     <main className="shell" data-phase={snapshot.phase}>
+      {!showLobbyOverlay ? (
+        <section className="hud-card" data-testid="hud-card">
+          <div className="hud-brand">
+            <SnakeWordmark className="hud-wordmark" />
+          </div>
+          <div className="status-row">
+            <div data-testid="timer-card">
+              <span>Timer</span>
+              <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
+            </div>
+            <div data-testid="p1-score-card">
+              <span>{getPlayerName(snapshot, 'p1')}</span>
+              <strong data-testid="p1-score">
+                {snapshot.game?.players.p1.respawnRemainingMs
+                  ? `Respawn ${Math.ceil(snapshot.game.players.p1.respawnRemainingMs / 1000)}`
+                  : snapshot.game?.players.p1.score ?? 0}
+              </strong>
+            </div>
+            <div data-testid="p2-score-card">
+              <span>{getPlayerName(snapshot, 'p2')}</span>
+              <strong data-testid="p2-score">
+                {snapshot.game?.players.p2.respawnRemainingMs
+                  ? `Respawn ${Math.ceil(snapshot.game.players.p2.respawnRemainingMs / 1000)}`
+                  : snapshot.game?.players.p2.score ?? 0}
+              </strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {showLobbyOverlay ? (
         <section className="menu-hero" data-testid="lobby-overlay">
           <SnakeWordmark className="menu-wordmark" />
@@ -518,7 +548,7 @@ export default function App() {
         ) : null}
       </section>
 
-      <section className="players-card" data-testid="players-card">
+      <section className="players-card" data-testid="players-card" style={!showLobbyOverlay ? { display: 'none' } : undefined}>
         <div className="players-title">
           <strong>Claim your side</strong>
         </div>
@@ -644,6 +674,7 @@ export default function App() {
           </ul>
         </section>
       </section>
+
     </main>
   );
 }
