@@ -1,72 +1,125 @@
-import { useId } from 'react';
-
 type SnakeWordmarkProps = {
   className?: string;
 };
 
-const LETTERS = [
-  { key: 's', path: 'M20 18H168V60H62V94H168V136H126V170H168V212H20V170H126V136H20V18Z' },
-  { key: 'n', path: 'M206 18H248V140L332 18H378V212H336V90L252 212H206Z' },
-  { key: 'a', path: 'M416 212L478 18H566L628 212H582L569 170H475L462 212ZM487 132H557L522 52Z' },
-  { key: 'k', path: 'M666 18H708V96L782 18H836L754 108L842 212H790L728 138L708 156V212H666Z' },
-  { key: 'e', path: 'M882 18H1044V60H924V94H1024V136H924V170H1044V212H882Z' },
-] as const;
+const CELL_W = 34;
+const CELL_H = 36;
+const GAP = 2;
+const STEP_X = CELL_W + GAP;
+const STEP_Y = CELL_H + GAP;
+const ORIGIN_Y = 20;
+const BLOCK_COLOR = '#b8b8be';
 
-const ECHO_OFFSETS = [
-  { x: 14, y: 16, opacity: 0.4 },
-  { x: 24, y: 26, opacity: 0.24 },
-  { x: 32, y: 34, opacity: 0.12 },
+const ECHO_LAYERS = [
+  { dx: 6, dy: 7, opacity: 0.35 },
+  { dx: 12, dy: 14, opacity: 0.18 },
+  { dx: 18, dy: 21, opacity: 0.08 },
+];
+
+type BlockDef = [number, number];
+
+const LETTER_DEFS: { key: string; x: number; blocks: BlockDef[] }[] = [
+  {
+    key: 's',
+    x: 20,
+    blocks: [
+      [0, 0], [1, 0], [2, 0], [3, 0],
+      [0, 1],
+      [0, 2], [1, 2], [2, 2], [3, 2],
+      [3, 3],
+      [0, 4], [1, 4], [2, 4], [3, 4],
+    ],
+  },
+  {
+    key: 'n',
+    x: 176,
+    blocks: [
+      [0, 0], [3, 0],
+      [0, 1], [1, 1], [3, 1],
+      [0, 2], [1, 2], [2, 2], [3, 2],
+      [0, 3], [2, 3], [3, 3],
+      [0, 4], [3, 4],
+    ],
+  },
+  {
+    key: 'a',
+    x: 332,
+    blocks: [
+      [0, 0], [1, 0], [2, 0], [3, 0],
+      [0, 1], [3, 1],
+      [0, 2], [1, 2], [2, 2], [3, 2],
+      [0, 3], [3, 3],
+      [0, 4], [3, 4],
+    ],
+  },
+  {
+    key: 'k',
+    x: 488,
+    blocks: [
+      [0, 0], [2, 0], [3, 0],
+      [0, 1], [1, 1], [2, 1],
+      [0, 2], [1, 2],
+      [0, 3], [1, 3], [2, 3],
+      [0, 4], [2, 4], [3, 4],
+    ],
+  },
+  {
+    key: 'e',
+    x: 644,
+    blocks: [
+      [0, 0], [1, 0], [2, 0], [3, 0],
+      [0, 1],
+      [0, 2], [1, 2], [2, 2],
+      [0, 3],
+      [0, 4], [1, 4], [2, 4], [3, 4],
+    ],
+  },
 ];
 
 export default function SnakeWordmark({ className }: SnakeWordmarkProps) {
-  const id = useId().replace(/:/g, '');
-  const fillId = `snake-wordmark-fill-${id}`;
-  const strokeId = `snake-wordmark-stroke-${id}`;
-  const glowId = `snake-wordmark-glow-${id}`;
-
   return (
     <svg
       className={className}
-      viewBox="0 0 1088 248"
+      viewBox="0 0 830 250"
       role="img"
       aria-label="Snake"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <defs>
-        <linearGradient id={fillId} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#fcfcff" />
-          <stop offset="45%" stopColor="#d8d8df" />
-          <stop offset="100%" stopColor="#a4a4ae" />
-        </linearGradient>
-        <linearGradient id={strokeId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f6f6fa" />
-          <stop offset="100%" stopColor="#9c9ca6" />
-        </linearGradient>
-        <filter id={glowId} x="-12%" y="-18%" width="124%" height="136%">
-          <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="rgba(255,255,255,0.28)" />
-          <feDropShadow dx="0" dy="0" stdDeviation="18" floodColor="rgba(190,190,205,0.16)" />
-        </filter>
-      </defs>
+      {ECHO_LAYERS.map((echo) => (
+        <g
+          key={`echo-${echo.dx}`}
+          transform={`translate(${echo.dx} ${echo.dy})`}
+          opacity={echo.opacity}
+          fill="none"
+          stroke="rgba(180,180,190,0.5)"
+          strokeWidth="1.5"
+        >
+          {LETTER_DEFS.map((letter) =>
+            letter.blocks.map(([col, row], i) => (
+              <rect
+                key={`${letter.key}-${i}`}
+                x={letter.x + col * STEP_X}
+                y={ORIGIN_Y + row * STEP_Y}
+                width={CELL_W}
+                height={CELL_H}
+              />
+            )),
+          )}
+        </g>
+      ))}
 
-      <g fill="none" stroke={`url(#${strokeId})`} strokeWidth="4">
-        {ECHO_OFFSETS.map((offset) => (
-          <g
-            key={`${offset.x}-${offset.y}`}
-            transform={`translate(${offset.x} ${offset.y})`}
-            opacity={offset.opacity}
-          >
-            {LETTERS.map((letter) => (
-              <path key={letter.key} d={letter.path} />
-            ))}
-          </g>
-        ))}
-      </g>
-
-      <g filter={`url(#${glowId})`}>
-        {LETTERS.map((letter) => (
-          <path key={letter.key} d={letter.path} fill={`url(#${fillId})`} />
-        ))}
-      </g>
+      {LETTER_DEFS.map((letter) =>
+        letter.blocks.map(([col, row], i) => (
+          <rect
+            key={`${letter.key}-${i}`}
+            x={letter.x + col * STEP_X}
+            y={ORIGIN_Y + row * STEP_Y}
+            width={CELL_W}
+            height={CELL_H}
+            fill={BLOCK_COLOR}
+          />
+        )),
+      )}
     </svg>
   );
 }
