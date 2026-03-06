@@ -11,7 +11,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        'PORT=3001 COUNTDOWN_MS=500 MATCH_DURATION_MS=1500 FINISH_DWELL_MS=700 DISCONNECT_GRACE_MS=1200 bun run server',
+        'PORT=3001 COUNTDOWN_MS=500 MATCH_DURATION_MS=5000 FINISH_DWELL_MS=700 DISCONNECT_GRACE_MS=1200 bun run server',
       url: 'http://127.0.0.1:3001/health',
       reuseExistingServer: true,
       timeout: 30_000,

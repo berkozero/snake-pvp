@@ -78,6 +78,7 @@ export function makeStartingSnake(playerId: PlayerId): PlayerState {
     pendingDirection: layout.direction,
     alive: true,
     respawnAt: null,
+    respawnPreview: null,
     color: config.color,
     glow: config.glow,
     keyMap: config.keyMap,

@@ -10,7 +10,7 @@ import {
   makeStartingSnake,
   oppositeDirection,
 } from './constants';
-import type { Cell, Direction, PlayerId, PlayerState, RoundState, TickResult } from './types';
+import type { Cell, Direction, PlayerId, PlayerState, RespawnPreview, RoundState, TickResult } from './types';
 
 const PLAYER_IDS: PlayerId[] = ['p1', 'p2'];
 const FOOD_EDGE_BUFFER = 3;
@@ -34,10 +34,22 @@ function cloneSegments(segments: Cell[]): Cell[] {
   return segments.map(cloneCell);
 }
 
+function cloneRespawnPreview(preview: RespawnPreview | null): RespawnPreview | null {
+  if (!preview) {
+    return null;
+  }
+
+  return {
+    head: cloneCell(preview.head),
+    direction: preview.direction,
+  };
+}
+
 function clonePlayer(player: PlayerState): PlayerState {
   return {
     ...player,
     segments: cloneSegments(player.segments),
+    respawnPreview: cloneRespawnPreview(player.respawnPreview),
     keyMap: { ...player.keyMap },
   };
 }
@@ -57,6 +69,14 @@ function isInsideBoard(cell: Cell): boolean {
 function advanceHead(cell: Cell, direction: Direction): Cell {
   const vector = directionVectors[direction];
   return { x: cell.x + vector.x, y: cell.y + vector.y };
+}
+
+function buildSpawnSegments(head: Cell, direction: Direction): Cell[] {
+  const tailVector = directionVectors[oppositeDirection[direction]];
+  return Array.from({ length: START_LENGTH }, (_, index) => ({
+    x: head.x + tailVector.x * index,
+    y: head.y + tailVector.y * index,
+  }));
 }
 
 function pickRandomIndex(length: number, random: RandomSource): number {
@@ -101,18 +121,14 @@ function findSafeSpawn(occupied: Set<string>, random: RandomSource): { segments:
   }
 
   for (const candidate of shuffle(candidates, random)) {
-    const tailVector = directionVectors[oppositeDirection[candidate.direction]];
-    const segments = Array.from({ length: START_LENGTH }, (_, index) => ({
-      x: candidate.head.x + tailVector.x * index,
-      y: candidate.head.y + tailVector.y * index,
-    }));
+    const segments = buildSpawnSegments(candidate.head, candidate.direction);
     if (segments.every((cell) => isInsideBoard(cell) && !occupied.has(cellKey(cell)))) {
       return { segments, direction: candidate.direction };
     }
   }
 
   return {
-    segments: [{ x: Math.floor(BOARD_WIDTH / 2), y: Math.floor(BOARD_HEIGHT / 2) }],
+    segments: buildSpawnSegments({ x: Math.floor(BOARD_WIDTH / 2), y: Math.floor(BOARD_HEIGHT / 2) }, 'right'),
     direction: 'right',
   };
 }
@@ -144,15 +160,25 @@ export function pickFoodCell(players: Record<PlayerId, PlayerState>, random: Ran
   };
 }
 
-function makeRespawnedPlayer(player: PlayerState, occupied: Set<string>, random: RandomSource): PlayerState {
+function pickRespawnPreview(occupied: Set<string>, random: RandomSource): RespawnPreview {
   const spawn = findSafeSpawn(occupied, random);
   return {
-    ...player,
-    segments: spawn.segments,
+    head: cloneCell(spawn.segments[0]),
     direction: spawn.direction,
-    pendingDirection: spawn.direction,
+  };
+}
+
+function makeRespawnedPlayer(player: PlayerState, occupied: Set<string>, random: RandomSource): PlayerState {
+  const preview = player.respawnPreview ?? pickRespawnPreview(occupied, random);
+  const segments = buildSpawnSegments(preview.head, preview.direction);
+  return {
+    ...player,
+    segments,
+    direction: preview.direction,
+    pendingDirection: preview.direction,
     alive: true,
     respawnAt: null,
+    respawnPreview: null,
   };
 }
 
@@ -171,12 +197,13 @@ function canUseDirection(current: Direction, next: Direction): boolean {
   return oppositeDirection[current] !== next;
 }
 
-function killPlayer(player: PlayerState, nowMs: number): PlayerState {
+function killPlayer(player: PlayerState, nowMs: number, preview: RespawnPreview): PlayerState {
   return {
     ...player,
     alive: false,
     segments: [],
     respawnAt: nowMs + RESPAWN_DELAY_MS,
+    respawnPreview: cloneRespawnPreview(preview),
   };
 }
 
@@ -288,6 +315,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
     players: { ...state.players },
   };
   const events: string[] = [];
+  const respawnedIds = new Set<PlayerId>();
 
   const respawnOccupied = new Set<string>();
   for (const id of PLAYER_IDS) {
@@ -303,15 +331,17 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       for (const segment of workingState.players[id].segments) {
         respawnOccupied.add(cellKey(segment));
       }
+      respawnedIds.add(id);
       events.push(`${id}-respawn`);
     }
   }
 
   const aliveIds = PLAYER_IDS.filter((id) => workingState.players[id].alive);
+  const movingAliveIds = aliveIds.filter((id) => !respawnedIds.has(id));
   const moved: Record<PlayerId, MoveData | null> = { p1: null, p2: null };
   const foodCell = workingState.food;
 
-  for (const id of aliveIds) {
+  for (const id of movingAliveIds) {
     const player = workingState.players[id];
     const direction = canUseDirection(player.direction, player.pendingDirection)
       ? player.pendingDirection
@@ -337,7 +367,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
   }
 
   const playersAfterMove = { ...workingState.players };
-  for (const id of aliveIds) {
+  for (const id of movingAliveIds) {
     playersAfterMove[id] = moved[id]!.nextPlayer;
     if (moved[id]!.ateFood) {
       events.push(`${id}-food`);
@@ -349,7 +379,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
     cutExemptions.set(id, new Set<string>());
   }
 
-  for (const attackerId of aliveIds) {
+  for (const attackerId of movingAliveIds) {
     const defenderId = attackerId === 'p1' ? 'p2' : 'p1';
     const attackerHead = moved[attackerId]?.head;
     const defender = playersAfterMove[defenderId];
@@ -425,12 +455,35 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
   }
 
   for (const id of deaths) {
-    playersAfterMove[id] = killPlayer(playersAfterMove[id], workingState.clockMs);
+    const occupied = new Set<string>();
+    for (const playerId of PLAYER_IDS) {
+      if (playerId === id || deaths.has(playerId)) {
+        continue;
+      }
+      for (const segment of playersAfterMove[playerId].segments) {
+        occupied.add(cellKey(segment));
+      }
+    }
+    for (const priorId of PLAYER_IDS) {
+      if (priorId === id) {
+        break;
+      }
+      const priorPreview = playersAfterMove[priorId].respawnPreview;
+      if (!deaths.has(priorId) || !priorPreview) {
+        continue;
+      }
+      for (const segment of buildSpawnSegments(priorPreview.head, priorPreview.direction)) {
+        occupied.add(cellKey(segment));
+      }
+    }
+
+    const preview = pickRespawnPreview(occupied, random);
+    playersAfterMove[id] = killPlayer(playersAfterMove[id], workingState.clockMs, preview);
     events.push(`${id}-death`);
   }
 
   let nextFood = workingState.food;
-  if (aliveIds.some((id) => moved[id]?.ateFood)) {
+  if (movingAliveIds.some((id) => moved[id]?.ateFood)) {
     nextFood = pickFoodCell(playersAfterMove, random);
   }
 
@@ -512,6 +565,7 @@ export function serializeState(state: RoundState) {
             pendingDirection: player.pendingDirection,
             length: player.segments.length,
             head: player.segments[0] ? cloneCell(player.segments[0]) : null,
+            respawnPreview: cloneRespawnPreview(player.respawnPreview),
           },
         ];
       }),

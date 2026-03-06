@@ -86,6 +86,12 @@ function cloneSegments(state: RoundState): GameSnapshot['players'] {
       length: state.players.p1.segments.length,
       segments: state.players.p1.segments.map((segment) => ({ ...segment })),
       respawnRemainingMs: getRespawnRemainingMs(state.players.p1, state.clockMs),
+      respawnPreview: state.players.p1.respawnPreview
+        ? {
+            head: { ...state.players.p1.respawnPreview.head },
+            direction: state.players.p1.respawnPreview.direction,
+          }
+        : null,
     },
     p2: {
       alive: state.players.p2.alive,
@@ -94,6 +100,12 @@ function cloneSegments(state: RoundState): GameSnapshot['players'] {
       length: state.players.p2.segments.length,
       segments: state.players.p2.segments.map((segment) => ({ ...segment })),
       respawnRemainingMs: getRespawnRemainingMs(state.players.p2, state.clockMs),
+      respawnPreview: state.players.p2.respawnPreview
+        ? {
+            head: { ...state.players.p2.respawnPreview.head },
+            direction: state.players.p2.respawnPreview.direction,
+          }
+        : null,
     },
   };
 }

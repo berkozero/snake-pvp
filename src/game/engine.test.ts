@@ -60,6 +60,7 @@ describe('engine', () => {
     const deadState = tick(state, state.tickMs, 1000, { random: createDeterministicRandom([0]) }).state;
     expect(deadState.players.p1.alive).toBe(false);
     expect(deadState.players.p1.score).toBe(4);
+    expect(deadState.players.p1.respawnPreview).not.toBeNull();
     expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs)).toBe(3);
     expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 1001)).toBe(2);
     expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 2001)).toBe(1);
@@ -68,6 +69,33 @@ describe('engine', () => {
     expect(respawnedState.players.p1.alive).toBe(true);
     expect(respawnedState.players.p1.score).toBe(4);
     expect(respawnedState.players.p1.segments.length).toBeGreaterThan(0);
+    expect(respawnedState.players.p1.respawnPreview).toBeNull();
+  });
+
+  it('locks the respawn preview across intermediate ticks and respawns at the previewed location and direction', () => {
+    const state = makePlayingState({
+      players: {
+        p1: {
+          segments: [{ x: 35, y: 5 }, { x: 34, y: 5 }, { x: 33, y: 5 }, { x: 32, y: 5 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+      },
+    });
+
+    const deadState = tick(state, state.tickMs, 1000, { random: createDeterministicRandom([0.21]) }).state;
+    const preview = deadState.players.p1.respawnPreview;
+    expect(preview).not.toBeNull();
+
+    const duringDelay = tick(deadState, 1_500, 2_500, { random: createDeterministicRandom([0.93]) }).state;
+    expect(duringDelay.players.p1.alive).toBe(false);
+    expect(duringDelay.players.p1.respawnPreview).toEqual(preview);
+
+    const respawnedState = tick(duringDelay, 1_500, 4_000, { random: createDeterministicRandom([0.04]) }).state;
+    expect(respawnedState.players.p1.alive).toBe(true);
+    expect(respawnedState.players.p1.direction).toBe(preview?.direction);
+    expect(respawnedState.players.p1.segments[0]).toEqual(preview?.head);
+    expect(respawnedState.players.p1.respawnPreview).toBeNull();
   });
 
   it('respawns food only on free cells, even when only one cell is open', () => {

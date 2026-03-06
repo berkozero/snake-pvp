@@ -1,4 +1,4 @@
-import type { Cell, Direction, PlayerId } from '../game/types';
+import type { Cell, Direction, PlayerId, RespawnPreview } from '../game/types';
 
 export const PROTOCOL_VERSION = 1;
 export const ROOM_ID = 'main';
@@ -27,6 +27,7 @@ export type GamePlayerSnapshot = {
   length: number;
   segments: Cell[];
   respawnRemainingMs: number;
+  respawnPreview: RespawnPreview | null;
 };
 
 export type GameSnapshot = {

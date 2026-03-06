@@ -26,6 +26,7 @@ type ClientPayload = ClientMessage extends infer T
 const CANVAS_WIDTH = BOARD_WIDTH * CELL_SIZE;
 const CANVAS_HEIGHT = BOARD_HEIGHT * CELL_SIZE;
 const RESUME_TOKEN_KEY = 'snake-pvp-resume-token';
+const GAME_SERVER_URL = getGameServerUrl();
 const EMPTY_SNAPSHOT: RoomSnapshotMessage = {
   v: PROTOCOL_VERSION,
   type: 'room_snapshot',
@@ -155,6 +156,7 @@ function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null): vo
       ctx.restore();
     });
   });
+
 }
 
 function getWinnerLabel(result: ResultSnapshot | null, snapshot: RoomSnapshotMessage): string {
@@ -214,6 +216,27 @@ function cellOrDash(cell: Cell | null): string {
   return `${cell.x},${cell.y}`;
 }
 
+function getSlotStatus(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
+  const state = snapshot.slots[slot];
+  if (!state.claimed) {
+    return '';
+  }
+  return state.connected ? 'Connected' : 'Reserved';
+}
+
+function getPreviewRotation(direction: GameSnapshot['players'][PlayerId]['direction']): number {
+  if (direction === 'up') {
+    return 0;
+  }
+  if (direction === 'right') {
+    return 90;
+  }
+  if (direction === 'down') {
+    return 180;
+  }
+  return 270;
+}
+
 export default function App() {
   const [snapshot, setSnapshot] = useState<RoomSnapshotMessage>(EMPTY_SNAPSHOT);
   const [p1Name, setP1Name] = useState('');
@@ -253,7 +276,7 @@ export default function App() {
         return;
       }
 
-      const socket = new WebSocket(getGameServerUrl());
+      const socket = new WebSocket(GAME_SERVER_URL);
       socketRef.current = socket;
       setReconnecting(true);
 
@@ -355,6 +378,10 @@ export default function App() {
         }
 
         reconnectTimerRef.current = window.setTimeout(connect, 1_500);
+      });
+
+      socket.addEventListener('error', () => {
+        setMessage(`Cannot reach game server at ${GAME_SERVER_URL}.`);
       });
     };
 
@@ -470,6 +497,10 @@ export default function App() {
             <SnakeWordmark className="hud-wordmark" />
           </div>
           <div className="status-row">
+            <div data-testid="connection-card">
+              <span>Server</span>
+              <strong>{connected ? 'Online' : reconnecting ? 'Reconnecting' : 'Offline'}</strong>
+            </div>
             <div data-testid="timer-card">
               <span>Timer</span>
               <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
@@ -510,13 +541,45 @@ export default function App() {
       ) : null}
 
       <section className="arena-card" style={showLobbyOverlay ? { display: 'none' } : undefined}>
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
-          className="arena"
-          data-testid="game-canvas"
-        />
+        <div className="arena-stage">
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className="arena"
+            data-testid="game-canvas"
+          />
+          {snapshot.game ? (
+            <div className="respawn-preview-layer" aria-hidden="true">
+              {(['p1', 'p2'] as PlayerId[]).map((playerId) => {
+                const player = snapshot.game?.players[playerId];
+                if (!player || player.alive || player.respawnRemainingMs <= 0 || !player.respawnPreview) {
+                  return null;
+                }
+
+                const colors = PLAYER_COLORS[playerId];
+                return (
+                  <div
+                    key={playerId}
+                    className={`respawn-preview-marker ${playerId}`}
+                    data-testid={`${playerId}-respawn-preview`}
+                    style={{
+                      left: `${((player.respawnPreview.head.x + 0.5) / BOARD_WIDTH) * 100}%`,
+                      top: `${((player.respawnPreview.head.y + 0.5) / BOARD_HEIGHT) * 100}%`,
+                      ['--preview-fill' as string]: colors.fill,
+                      ['--preview-glow' as string]: colors.glow,
+                      ['--preview-rotation' as string]: `${getPreviewRotation(player.respawnPreview.direction)}deg`,
+                    }}
+                  >
+                    <span className="respawn-preview-cell" />
+                    <span className="respawn-preview-head" />
+                    <span className="respawn-preview-arrow" />
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
 
         {snapshot.phase === 'countdown' ? (
           <div className="overlay slim" data-testid="countdown-overlay">
@@ -550,12 +613,21 @@ export default function App() {
 
       <section className="players-card" data-testid="players-card" style={!showLobbyOverlay ? { display: 'none' } : undefined}>
         <div className="players-title">
+          <div
+            className={`health-indicator ${connected ? 'is-good' : 'is-bad'}`}
+            data-testid="health-indicator"
+            aria-live="polite"
+            aria-label={connected ? 'Connection healthy' : reconnecting ? 'Connection problem' : 'Server problem'}
+          >
+            <span className="health-dot" aria-hidden="true" />
+          </div>
           <strong>Claim your side</strong>
         </div>
         <div className="players-grid">
           <article className="player-slot-card p1-slot" data-testid="slot-p1">
             <div className="slot-row">
               <strong>{getPlayerName(snapshot, 'p1')}</strong>
+              <span>{getSlotStatus(snapshot, 'p1')}</span>
               {!snapshot.slots.p1.claimed ? (
                 <input
                   className="slot-input"
@@ -595,6 +667,7 @@ export default function App() {
           <article className="player-slot-card alt" data-testid="slot-p2">
             <div className="slot-row">
               <strong>{getPlayerName(snapshot, 'p2')}</strong>
+              <span>{getSlotStatus(snapshot, 'p2')}</span>
               {!snapshot.slots.p2.claimed ? (
                 <input
                   className="slot-input"
