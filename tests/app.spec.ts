@@ -122,3 +122,57 @@ test('timer, result, and reset are driven by server snapshots', async ({ browser
   await p1.close();
   await p2.close();
 });
+
+test('shows the current connection target and slot connection state in the lobby', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('health-indicator')).toHaveAttribute(
+    'aria-label',
+    /Connection healthy|Connection problem|Server problem/,
+  );
+  await expect(page.getByTestId('slot-p1')).toContainText('P1');
+  await expect(page.getByTestId('slot-p2')).toContainText('P2');
+});
+
+test('respawn preview stays locked for both clients during the death delay and clears on respawn', async ({ browser }) => {
+  const p1 = await browser.newPage();
+  const p2 = await browser.newPage();
+
+  await joinSlot(p1, 'Alpha', 'p1');
+  await joinSlot(p2, 'Bravo', 'p2');
+  await p1.getByTestId('start-match').click();
+
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+  await p2.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+  await pressGameKey(p1, 'ArrowUp');
+
+  await p1.waitForFunction(() => {
+    const player = window.__SNAKE_PVP_STATE__?.game?.players.p1;
+    return player?.alive === false && player.respawnPreview !== null;
+  });
+  await p2.waitForFunction(() => {
+    const player = window.__SNAKE_PVP_STATE__?.game?.players.p1;
+    return player?.alive === false && player.respawnPreview !== null;
+  });
+
+  await expect(p1.getByTestId('p1-respawn-preview')).toBeVisible();
+  await expect(p2.getByTestId('p1-respawn-preview')).toBeVisible();
+
+  const p1DeadState = await snapshot(p1);
+  const p2DeadState = await snapshot(p2);
+
+  expect(p1DeadState?.game?.players.p1.respawnPreview).toEqual(p2DeadState?.game?.players.p1.respawnPreview);
+  expect(p1DeadState?.game?.players.p1.respawnRemainingMs).toBeGreaterThan(0);
+  await expect(p1.getByTestId('p1-score')).toContainText('Respawn');
+
+  await p1.waitForFunction(() => {
+    const player = window.__SNAKE_PVP_STATE__?.game?.players.p1;
+    return player?.alive === true && player.respawnPreview === null;
+  });
+  await p2.waitForFunction(() => {
+    const player = window.__SNAKE_PVP_STATE__?.game?.players.p1;
+    return player?.alive === true && player.respawnPreview === null;
+  });
+
+  await p1.close();
+  await p2.close();
+});

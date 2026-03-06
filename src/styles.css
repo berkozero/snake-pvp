@@ -167,6 +167,16 @@ button.secondary {
   color: var(--bright-2);
 }
 
+.status-row small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font);
+}
+
 .overlay h2 {
   margin: 0;
   font-size: clamp(1.9rem, 4vw, 3.5rem);
@@ -183,14 +193,6 @@ button.secondary {
   max-width: 42ch;
   color: var(--text);
   line-height: 1.5;
-}
-
-.lobby-status {
-  max-width: none;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 0.78rem;
 }
 
 .eyebrow {
@@ -256,6 +258,10 @@ button.secondary {
     var(--panel-strong);
 }
 
+.arena-stage {
+  position: relative;
+}
+
 .arena {
   width: 100%;
   height: auto;
@@ -265,6 +271,79 @@ button.secondary {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.03),
     0 18px 50px rgba(0, 0, 0, 0.34);
+}
+
+.respawn-preview-layer {
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+}
+
+.respawn-preview-marker {
+  position: absolute;
+  width: calc(100% / 36);
+  height: calc(100% / 24);
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 14px var(--preview-glow));
+}
+
+.respawn-preview-cell,
+.respawn-preview-head,
+.respawn-preview-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.respawn-preview-cell {
+  width: 92%;
+  height: 92%;
+  border: 2px solid color-mix(in srgb, var(--preview-fill) 60%, white);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0)),
+    color-mix(in srgb, var(--preview-fill) 32%, transparent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 26px color-mix(in srgb, var(--preview-fill) 52%, transparent);
+}
+
+.respawn-preview-head {
+  width: 26%;
+  height: 26%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.98);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.42);
+}
+
+.respawn-preview-arrow {
+  width: 62%;
+  height: 62%;
+  transform: translate(-50%, -50%) rotate(var(--preview-rotation));
+}
+
+.respawn-preview-arrow::before,
+.respawn-preview-arrow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.respawn-preview-arrow::before {
+  display: none;
+}
+
+.respawn-preview-arrow::after {
+  top: 7%;
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 22px solid rgba(255, 255, 255, 0.98);
+  filter:
+    drop-shadow(0 0 10px rgba(255, 255, 255, 0.54))
+    drop-shadow(0 0 18px color-mix(in srgb, var(--preview-fill) 50%, transparent));
 }
 
 .overlay {
@@ -434,6 +513,7 @@ button.secondary {
 }
 
 .players-title {
+  position: relative;
   padding: 24px 22px 18px;
   text-align: center;
 }
@@ -442,6 +522,38 @@ button.secondary {
   font-size: 1.55rem;
   font-family: var(--font);
   letter-spacing: 0;
+}
+
+.health-indicator {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(196, 196, 205, 0.16);
+  background: rgba(10, 10, 14, 0.82);
+  border-radius: 999px;
+}
+
+.health-indicator.is-good {
+  color: #8df57f;
+  border-color: rgba(133, 241, 119, 0.28);
+}
+
+.health-indicator.is-bad {
+  color: #ff6f6f;
+  border-color: rgba(255, 112, 112, 0.28);
+}
+
+.health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
 }
 
 .name-field {

@@ -9,6 +9,11 @@ export type PlayerId = 'p1' | 'p2';
 
 export type MatchPhase = 'menu' | 'countdown' | 'playing' | 'paused' | 'finished';
 
+export type RespawnPreview = {
+  head: Cell;
+  direction: Direction;
+};
+
 export type PlayerState = {
   id: PlayerId;
   name: string;
@@ -18,6 +23,7 @@ export type PlayerState = {
   pendingDirection: Direction;
   alive: boolean;
   respawnAt: number | null;
+  respawnPreview: RespawnPreview | null;
   color: string;
   glow: string;
   keyMap: Record<string, Direction>;

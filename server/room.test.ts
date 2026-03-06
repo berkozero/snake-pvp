@@ -278,6 +278,47 @@ describe('MainRoom', () => {
     }
   });
 
+  it('includes the same respawn preview in snapshots for both clients during the death window', () => {
+    const { room, connect, send, latest } = createHarness();
+
+    connect('s1');
+    connect('s2');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'b', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    if (room.game) {
+      room.game = {
+        ...room.game,
+        phase: 'playing',
+        countdownMs: 0,
+        players: {
+          ...room.game.players,
+          p1: {
+            ...room.game.players.p1,
+            segments: [{ x: 35, y: 5 }, { x: 34, y: 5 }, { x: 33, y: 5 }, { x: 32, y: 5 }],
+            direction: 'right',
+            pendingDirection: 'right',
+          },
+        },
+      };
+      room.phase = 'playing';
+    }
+
+    room.tick();
+
+    const p1Snapshot = latest('s1');
+    const p2Snapshot = latest('s2');
+    expect(p1Snapshot?.type).toBe('room_snapshot');
+    expect(p2Snapshot?.type).toBe('room_snapshot');
+
+    if (p1Snapshot?.type === 'room_snapshot' && p2Snapshot?.type === 'room_snapshot') {
+      expect(p1Snapshot.game?.players.p1.alive).toBe(false);
+      expect(p1Snapshot.game?.players.p1.respawnRemainingMs).toBeGreaterThan(0);
+      expect(p1Snapshot.game?.players.p1.respawnPreview).toEqual(p2Snapshot.game?.players.p1.respawnPreview);
+    }
+  });
+
   it('finishes by forfeit after grace expiry during play and ignores disconnect branching during finished', () => {
     const { room, connect, send, advance } = createHarness();
 
