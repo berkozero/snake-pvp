@@ -252,6 +252,7 @@ export default function App() {
         {state.phase === 'menu' && (
           <div className="overlay menu-overlay" data-testid="menu-overlay">
             <SnakeWordmark className="menu-wordmark" />
+            <h2>Three minutes. Outgrow or outcut.</h2>
             <div className="controls-grid">
               <p><span>P1</span> WASD</p>
               <p><span>P2</span> IJKL</p>
