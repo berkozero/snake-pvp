@@ -44,10 +44,6 @@ const EMPTY_SNAPSHOT: RoomSnapshotMessage = {
   result: null,
 };
 const DIRECTION_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
-  w: 'up',
-  a: 'left',
-  s: 'down',
-  d: 'right',
   ArrowUp: 'up',
   ArrowLeft: 'left',
   ArrowDown: 'down',
@@ -482,9 +478,9 @@ export default function App() {
             <SnakeWordmark className="menu-wordmark" />
             <h2>Three minutes. Outgrow or outcut.</h2>
             <div className="controls-grid">
-              <p><span>P1</span> WASD</p>
-              <p><span>P2</span> IJKL</p>
-              <p><span>Pause</span> Space</p>
+              <p><span>Movement</span> Arrow Keys</p>
+              <p><span>Players</span> Same controls on each client</p>
+              <p><span>Server</span> Railway match server</p>
               <p><span>Start</span> Enter / button</p>
             </div>
             <button

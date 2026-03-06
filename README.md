@@ -18,7 +18,7 @@ Two players claim named slots, join the same room, chase the same food, grow lon
 
 ## Controls
 
-- Local client controls: `W`, `A`, `S`, `D`
+- Movement on every client: arrow keys
 - Start when room is ready: `Enter`
 
 ## Visual Style
@@ -81,7 +81,7 @@ This project includes:
 
 ## Deploy
 
-Use Railway for the Bun WebSocket server and Vercel for the static Vite frontend.
+Use Railway for the Bun WebSocket match server and Vercel for the static Vite frontend.
 
 ### Railway
 

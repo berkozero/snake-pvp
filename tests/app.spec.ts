@@ -34,7 +34,7 @@ test('two clients join, get ownership, and start a live match', async ({ browser
   await expect(p1.getByTestId('countdown-overlay')).toBeVisible();
   await expect(p2.getByTestId('countdown-overlay')).toBeVisible();
 
-  await pressGameKey(p1, 'w');
+  await pressGameKey(p1, 'ArrowUp');
 
   await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
   await p2.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
