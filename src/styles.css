@@ -1,18 +1,18 @@
 :root {
   color-scheme: dark;
-  --bg: #09090d;
-  --panel: rgba(12, 12, 16, 0.95);
-  --panel-strong: rgba(14, 14, 18, 0.99);
-  --line: rgba(198, 198, 210, 0.12);
-  --line-strong: rgba(232, 232, 242, 0.22);
-  --text: #f1f1f4;
-  --muted: #9f9faa;
+  --bg: #040405;
+  --panel: rgba(7, 7, 9, 0.97);
+  --panel-strong: rgba(4, 4, 6, 0.99);
+  --line: rgba(205, 205, 214, 0.13);
+  --line-strong: rgba(241, 241, 246, 0.28);
+  --text: #f2f2f5;
+  --muted: #8f8f99;
   --bright: #7cff7a;
   --bright-2: #56a8ff;
   --accent: #ff9e3b;
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.58);
+  --shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
   --display-font: Impact, Haettenschweiler, "Arial Black", sans-serif;
-  --ui-font: "Trebuchet MS", Verdana, Tahoma, sans-serif;
+  --ui-font: "Lucida Console", "Courier New", monospace;
   --mono-font: "Lucida Console", "Courier New", monospace;
   font-family: var(--ui-font);
 }
@@ -26,43 +26,56 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(58, 58, 66, 0.12), transparent 26%),
-    linear-gradient(180deg, #111116 0%, #09090d 45%, #030304 100%);
+    radial-gradient(circle at top, rgba(111, 32, 24, 0.1), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(26, 39, 91, 0.08), transparent 28%),
+    linear-gradient(180deg, #0a090a 0%, #050506 24%, #020203 100%);
   color: var(--text);
 }
 
 button {
-  border: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, rgba(247, 247, 251, 0.12), rgba(112, 112, 124, 0.18));
+  border: 1px solid rgba(236, 236, 242, 0.2);
+  background: linear-gradient(180deg, rgba(27, 27, 32, 0.94), rgba(12, 12, 16, 0.96));
   color: var(--text);
-  border-radius: 6px;
-  padding: 0.85rem 1.25rem;
+  border-radius: 3px;
+  padding: 0.9rem 1.25rem;
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   font-weight: 700;
-  font-family: var(--display-font);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 244, 202, 0.2),
-    0 10px 24px rgba(0, 0, 0, 0.35);
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  font-family: var(--mono-font);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
 button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: linear-gradient(180deg, rgba(34, 34, 39, 0.98), rgba(16, 16, 20, 0.98));
+  border-color: rgba(255, 255, 255, 0.34);
 }
 
 button.secondary {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(71, 71, 82, 0.12));
+  background: linear-gradient(180deg, rgba(18, 18, 22, 0.9), rgba(10, 10, 14, 0.96));
+}
+
+.start-button {
+  border-color: rgba(255, 184, 104, 0.6);
+  background: linear-gradient(180deg, rgba(255, 192, 112, 0.56), rgba(232, 114, 34, 0.68));
+  color: #fff7ec;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 242, 224, 0.22),
+    0 0 0 1px rgba(255, 158, 59, 0.18);
+}
+
+.start-button:hover {
+  background: linear-gradient(180deg, rgba(255, 204, 132, 0.66), rgba(245, 124, 36, 0.76));
+  border-color: rgba(255, 205, 142, 0.74);
 }
 
 .shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 8px 24px 24px;
   display: grid;
-  gap: 20px;
+  gap: 14px;
   justify-items: center;
 }
 
@@ -73,7 +86,17 @@ button.secondary {
   border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
+  position: relative;
+}
+
+.hud-card::before,
+.arena-card::before,
+.footer-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  pointer-events: none;
 }
 
 .hud-card,
@@ -89,12 +112,11 @@ button.secondary {
   min-width: 0;
 }
 
-.hud-card h1,
 .overlay h2 {
   margin: 0;
-  font-size: clamp(2rem, 4vw, 3.6rem);
-  line-height: 0.92;
-  letter-spacing: 0.03em;
+  font-size: clamp(1.9rem, 4vw, 3.5rem);
+  line-height: 0.88;
+  letter-spacing: 0;
   text-wrap: balance;
   font-family: var(--display-font);
   text-transform: uppercase;
@@ -123,10 +145,12 @@ button.secondary {
 .controls-grid p {
   min-width: 110px;
   padding: 12px 14px;
-  border: 1px solid rgba(210, 210, 224, 0.11);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(21, 21, 28, 0.36));
-  border-radius: 4px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(196, 196, 205, 0.14);
+  background:
+    linear-gradient(180deg, rgba(12, 12, 16, 0.94), rgba(8, 8, 12, 0.98)),
+    var(--panel);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .status-row span,
@@ -143,9 +167,9 @@ button.secondary {
 
 .status-row strong,
 .footer-card strong {
-  font-size: 1.2rem;
-  font-family: var(--display-font);
-  letter-spacing: 0.04em;
+  font-size: 1.05rem;
+  font-family: var(--ui-font);
+  letter-spacing: 0;
 }
 
 .status-row div:nth-child(2) strong {
@@ -158,10 +182,10 @@ button.secondary {
 
 .arena-card {
   position: relative;
-  padding: 14px;
+  padding: 34px 10px 10px;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(22, 22, 28, 0.98), rgba(8, 8, 12, 0.99)),
+    linear-gradient(180deg, rgba(10, 10, 14, 0.99), rgba(3, 3, 5, 1)),
     var(--panel-strong);
 }
 
@@ -172,8 +196,8 @@ button.secondary {
   border: 1px solid rgba(228, 228, 238, 0.08);
   background: #050507;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 22px 70px rgba(0, 0, 0, 0.45);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 18px 50px rgba(0, 0, 0, 0.34);
 }
 
 .overlay {
@@ -183,15 +207,17 @@ button.secondary {
   place-content: center;
   gap: 16px;
   padding: 24px;
-  background: linear-gradient(180deg, rgba(6, 6, 8, 0.72), rgba(12, 12, 16, 0.9));
+  background:
+    linear-gradient(180deg, rgba(4, 4, 6, 0.88), rgba(8, 8, 10, 0.94)),
+    rgba(5, 5, 7, 0.9);
   text-align: center;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(3px);
 }
 
 .menu-overlay {
   justify-items: center;
-  gap: 20px;
-  padding-block: 36px;
+  gap: 18px;
+  padding-block: 34px;
 }
 
 .menu-wordmark {
@@ -208,8 +234,8 @@ button.secondary {
 
 .menu-overlay h2 {
   max-width: 18ch;
-  font-size: clamp(1.35rem, 2.9vw, 2.7rem);
-  line-height: 0.96;
+  font-size: clamp(1.35rem, 2.8vw, 2.55rem);
+  line-height: 0.94;
 }
 
 .overlay.slim {
@@ -221,6 +247,16 @@ button.secondary {
 }
 
 .button-row {
+  justify-content: center;
+}
+
+.status-row,
+.button-row {
+  align-items: stretch;
+}
+
+.controls-grid,
+.score-grid {
   justify-content: center;
 }
 
@@ -238,6 +274,27 @@ button.secondary {
 .footer-card div {
   font-family: var(--ui-font);
   font-weight: 700;
+}
+
+.controls-grid p,
+.footer-card div,
+.status-row div {
+  text-align: left;
+}
+
+.footer-card {
+  align-items: stretch;
+  padding-top: 22px;
+}
+
+.footer-card div {
+  flex: 1;
+  min-height: 84px;
+}
+
+.footer-card span::before {
+  content: '[] ';
+  color: rgba(255, 255, 255, 0.35);
 }
 
 @media (max-width: 900px) {
@@ -270,5 +327,9 @@ button.secondary {
   .menu-overlay h2 {
     max-width: 16ch;
     font-size: clamp(1.15rem, 6.5vw, 1.85rem);
+  }
+
+  .arena-card {
+    padding-top: 30px;
   }
 }

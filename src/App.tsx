@@ -220,46 +220,51 @@ export default function App() {
 
   return (
     <main className="shell" data-phase={state.phase}>
-      <section className="hud-card">
-        <div className="hud-brand">
-          <p className="eyebrow">Local Arcade Duel</p>
-          <SnakeWordmark className="hud-wordmark" />
-        </div>
-        <div className="status-row">
-          <div data-testid="timer-card">
-            <span>Timer</span>
-            <strong data-testid="timer-value">{formatTime(state.remainingMs)}</strong>
+      {state.phase !== 'menu' && (
+        <section className="hud-card">
+          <div className="hud-brand">
+            <SnakeWordmark className="hud-wordmark" />
           </div>
-          <div data-testid="p1-score-card">
-            <span>P1</span>
-            <strong data-testid="p1-score">
-              {p1RespawnCountdown ? `Respawn ${p1RespawnCountdown}` : state.players.p1.score}
-            </strong>
+          <div className="status-row">
+            <div data-testid="timer-card">
+              <span>Timer</span>
+              <strong data-testid="timer-value">{formatTime(state.remainingMs)}</strong>
+            </div>
+            <div data-testid="p1-score-card">
+              <span>P1</span>
+              <strong data-testid="p1-score">
+                {p1RespawnCountdown ? `Respawn ${p1RespawnCountdown}` : state.players.p1.score}
+              </strong>
+            </div>
+            <div data-testid="p2-score-card">
+              <span>P2</span>
+              <strong data-testid="p2-score">
+                {p2RespawnCountdown ? `Respawn ${p2RespawnCountdown}` : state.players.p2.score}
+              </strong>
+            </div>
           </div>
-          <div data-testid="p2-score-card">
-            <span>P2</span>
-            <strong data-testid="p2-score">
-              {p2RespawnCountdown ? `Respawn ${p2RespawnCountdown}` : state.players.p2.score}
-            </strong>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="arena-card">
         <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="arena" data-testid="game-canvas" />
 
         {state.phase === 'menu' && (
           <div className="overlay menu-overlay" data-testid="menu-overlay">
-            <p className="eyebrow">Retro duel system // local versus on one keyboard</p>
             <SnakeWordmark className="menu-wordmark" />
-            <h2>One keyboard. Three minutes. Outgrow or outcut.</h2>
             <div className="controls-grid">
               <p><span>P1</span> WASD</p>
               <p><span>P2</span> IJKL</p>
               <p><span>Pause</span> Space</p>
               <p><span>Start</span> Enter / button</p>
             </div>
-            <button data-testid="start-match" onClick={() => setState((current) => startCountdown(current))}>Start Match</button>
+            <button
+              data-testid="start-match"
+              className="start-button"
+              onClick={() => setState((current) => startCountdown(current))}
+            >
+              Start Match
+            </button>
           </div>
         )}
 

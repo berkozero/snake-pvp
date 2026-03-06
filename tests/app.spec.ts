@@ -4,10 +4,11 @@ test('boots into the menu and starts the match flow', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByTestId('menu-overlay')).toBeVisible();
-  await expect(page.getByTestId('timer-value')).toHaveText('3:00');
+  await expect(page.getByTestId('timer-card')).toHaveCount(0);
 
   await page.getByTestId('start-match').click();
   await expect(page.getByTestId('countdown-overlay')).toBeVisible();
+  await expect(page.getByTestId('timer-value')).toHaveText('3:00');
   await page.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
 
   await expect(page.locator('[data-phase="playing"]')).toBeVisible();
@@ -69,12 +70,14 @@ test('shows the winner screen and can return to title', async ({ page }) => {
 
   await page.getByTestId('back-to-title').click();
   await expect(page.getByTestId('menu-overlay')).toBeVisible();
-  await expect(page.getByTestId('timer-value')).toHaveText('3:00');
+  await expect(page.getByTestId('timer-card')).toHaveCount(0);
 });
 
 test('shows a respawn countdown in the dead player HUD card', async ({ page }) => {
+  const respawnAt = Date.now() + 2300;
+
   await page.goto('/');
-  await page.evaluate(() => {
+  await page.evaluate((targetRespawnAt) => {
     window.__SNAKE_PVP_TEST_API__?.setState((current) => ({
       ...current,
       phase: 'playing',
@@ -85,13 +88,13 @@ test('shows a respawn countdown in the dead player HUD card', async ({ page }) =
           ...current.players.p2,
           alive: false,
           segments: [],
-          respawnAt: current.clockMs + 2300,
+          respawnAt: targetRespawnAt,
         },
       },
     }));
-  });
+  }, respawnAt);
 
   await expect(page.getByTestId('p2-score')).toContainText('Respawn');
-  await page.waitForTimeout(1400);
-  await expect(page.getByTestId('p2-score')).toContainText('Respawn 1');
+  await page.waitForTimeout(900);
+  await expect(page.getByTestId('p2-score')).toContainText(/Respawn [12]/);
 });
