@@ -13,6 +13,8 @@ import {
 import type { Cell, Direction, PlayerId, PlayerState, RoundState, TickResult } from './types';
 
 const PLAYER_IDS: PlayerId[] = ['p1', 'p2'];
+const FOOD_EDGE_BUFFER = 3;
+const FOOD_EDGE_WEIGHT = 0.55;
 
 type RandomSource = () => number;
 
@@ -61,6 +63,23 @@ function pickRandomIndex(length: number, random: RandomSource): number {
   return Math.floor(random() * length);
 }
 
+function weightedRandomIndex(weights: number[], random: RandomSource): number {
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight <= 0) {
+    return 0;
+  }
+
+  let threshold = random() * totalWeight;
+  for (let index = 0; index < weights.length; index += 1) {
+    threshold -= weights[index];
+    if (threshold < 0) {
+      return index;
+    }
+  }
+
+  return weights.length - 1;
+}
+
 function shuffle<T>(values: T[], random: RandomSource): T[] {
   const array = [...values];
   for (let i = array.length - 1; i > 0; i -= 1) {
@@ -98,7 +117,7 @@ function findSafeSpawn(occupied: Set<string>, random: RandomSource): { segments:
   };
 }
 
-function randomFreeCell(players: Record<PlayerId, PlayerState>, random: RandomSource): Cell {
+export function pickFoodCell(players: Record<PlayerId, PlayerState>, random: RandomSource): Cell {
   const occupied = new Set<string>();
   for (const player of PLAYER_IDS.map((id) => players[id])) {
     for (const segment of player.segments) {
@@ -107,16 +126,22 @@ function randomFreeCell(players: Record<PlayerId, PlayerState>, random: RandomSo
   }
 
   const free: Cell[] = [];
+  const weights: number[] = [];
   for (let y = 0; y < BOARD_HEIGHT; y += 1) {
     for (let x = 0; x < BOARD_WIDTH; x += 1) {
       const cell = { x, y };
       if (!occupied.has(cellKey(cell))) {
         free.push(cell);
+        const distanceToBorder = Math.min(x, y, BOARD_WIDTH - 1 - x, BOARD_HEIGHT - 1 - y);
+        weights.push(distanceToBorder < FOOD_EDGE_BUFFER ? FOOD_EDGE_WEIGHT : 1);
       }
     }
   }
 
-  return free[pickRandomIndex(free.length, random)] ?? { x: Math.floor(BOARD_WIDTH / 2), y: Math.floor(BOARD_HEIGHT / 2) };
+  return free[weightedRandomIndex(weights, random)] ?? {
+    x: Math.floor(BOARD_WIDTH / 2),
+    y: Math.floor(BOARD_HEIGHT / 2),
+  };
 }
 
 function makeRespawnedPlayer(player: PlayerState, occupied: Set<string>, random: RandomSource): PlayerState {
@@ -155,13 +180,28 @@ function killPlayer(player: PlayerState, nowMs: number): PlayerState {
   };
 }
 
+export function getRespawnRemainingMs(player: PlayerState, nowMs: number): number {
+  if (player.alive || player.respawnAt === null) {
+    return 0;
+  }
+  return Math.max(0, player.respawnAt - nowMs);
+}
+
+export function getRespawnCountdown(player: PlayerState, nowMs: number): number | null {
+  const remainingMs = getRespawnRemainingMs(player, nowMs);
+  if (remainingMs <= 0) {
+    return null;
+  }
+  return Math.ceil(remainingMs / 1000);
+}
+
 export function createGameState(options: GameRuntimeOptions = {}): RoundState {
   const random = options.random ?? Math.random;
   const seedPlayers = {
     p1: makeStartingSnake('p1'),
     p2: makeStartingSnake('p2'),
   };
-  return createInitialState(randomFreeCell(seedPlayers, random));
+  return createInitialState(pickFoodCell(seedPlayers, random));
 }
 
 export function restartGame(options: GameRuntimeOptions = {}): RoundState {
@@ -387,7 +427,7 @@ export function tick(state: RoundState, deltaMs: number, nowMs: number, options:
 
   let nextFood = workingState.food;
   if (aliveIds.some((id) => moved[id]?.ateFood)) {
-    nextFood = randomFreeCell(playersAfterMove, random);
+    nextFood = pickFoodCell(playersAfterMove, random);
   }
 
   let nextPhase = workingState.phase;
@@ -448,6 +488,7 @@ export function createTestState(overrides: CreateStateOverrides = {}, options: G
 }
 
 export function serializeState(state: RoundState) {
+  const now = Date.now();
   return {
     phase: state.phase,
     remainingMs: state.remainingMs,
@@ -461,6 +502,8 @@ export function serializeState(state: RoundState) {
           {
             alive: player.alive,
             score: player.score,
+            respawnRemainingMs: getRespawnRemainingMs(player, now),
+            respawnCountdown: getRespawnCountdown(player, now),
             direction: player.direction,
             pendingDirection: player.pendingDirection,
             length: player.segments.length,

@@ -71,3 +71,27 @@ test('shows the winner screen and can return to title', async ({ page }) => {
   await expect(page.getByTestId('menu-overlay')).toBeVisible();
   await expect(page.getByTestId('timer-value')).toHaveText('3:00');
 });
+
+test('shows a respawn countdown in the dead player HUD card', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.__SNAKE_PVP_TEST_API__?.setState((current) => ({
+      ...current,
+      phase: 'playing',
+      countdownMs: 0,
+      players: {
+        ...current.players,
+        p2: {
+          ...current.players.p2,
+          alive: false,
+          segments: [],
+          respawnAt: Date.now() + 2300,
+        },
+      },
+    }));
+  });
+
+  await expect(page.getByTestId('p2-score')).toContainText('Respawn');
+  await page.waitForTimeout(1400);
+  await expect(page.getByTestId('p2-score')).toContainText('Respawn 1');
+});

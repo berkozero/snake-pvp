@@ -4,6 +4,7 @@ import {
   createGameState,
   formatTime,
   getCountdownLabel,
+  getRespawnCountdown,
   getWinnerLabel,
   queueDirection,
   restartGame,
@@ -31,36 +32,62 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   const grid = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  grid.addColorStop(0, 'rgba(40, 87, 43, 0.22)');
-  grid.addColorStop(1, 'rgba(17, 37, 18, 0.12)');
-  ctx.fillStyle = '#020403';
+  grid.addColorStop(0, 'rgba(52, 52, 58, 0.14)');
+  grid.addColorStop(0.55, 'rgba(18, 18, 24, 0.08)');
+  grid.addColorStop(1, 'rgba(6, 6, 10, 0.03)');
+  ctx.fillStyle = '#050507';
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   ctx.fillStyle = grid;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  ctx.strokeStyle = 'rgba(155, 255, 110, 0.08)';
+  const vignette = ctx.createRadialGradient(
+    CANVAS_WIDTH / 2,
+    CANVAS_HEIGHT / 2,
+    CANVAS_WIDTH * 0.1,
+    CANVAS_WIDTH / 2,
+    CANVAS_HEIGHT / 2,
+    CANVAS_WIDTH * 0.75,
+  );
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.38)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  ctx.strokeStyle = 'rgba(205, 205, 218, 0.028)';
   ctx.lineWidth = 1;
-  for (let x = 0; x <= CANVAS_WIDTH; x += CELL_SIZE) {
+  for (let x = CELL_SIZE; x < CANVAS_WIDTH; x += CELL_SIZE) {
     ctx.beginPath();
     ctx.moveTo(x + 0.5, 0);
     ctx.lineTo(x + 0.5, CANVAS_HEIGHT);
     ctx.stroke();
   }
-  for (let y = 0; y <= CANVAS_HEIGHT; y += CELL_SIZE) {
+  for (let y = CELL_SIZE; y < CANVAS_HEIGHT; y += CELL_SIZE) {
     ctx.beginPath();
     ctx.moveTo(0, y + 0.5);
     ctx.lineTo(CANVAS_WIDTH, y + 0.5);
     ctx.stroke();
   }
 
+  ctx.save();
+  ctx.strokeStyle = 'rgba(224, 224, 232, 0.11)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, CANVAS_WIDTH - 1, CANVAS_HEIGHT - 1);
+  ctx.strokeStyle = 'rgba(96, 96, 108, 0.18)';
+  ctx.strokeRect(6.5, 6.5, CANVAS_WIDTH - 13, CANVAS_HEIGHT - 13);
+  ctx.restore();
+
   const foodX = state.food.x * CELL_SIZE + CELL_SIZE / 2;
   const foodY = state.food.y * CELL_SIZE + CELL_SIZE / 2;
   ctx.save();
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = 'rgba(255, 196, 77, 0.7)';
-  ctx.fillStyle = '#ffc44d';
+  ctx.shadowBlur = 22;
+  ctx.shadowColor = 'rgba(255, 158, 59, 0.75)';
+  ctx.fillStyle = '#ff9e3b';
   ctx.beginPath();
-  ctx.arc(foodX, foodY, CELL_SIZE * 0.23, 0, Math.PI * 2);
+  ctx.arc(foodX, foodY, CELL_SIZE * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffd8ae';
+  ctx.beginPath();
+  ctx.arc(foodX - 2, foodY - 2, CELL_SIZE * 0.08, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -71,9 +98,14 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
       const inset = index === 0 ? 2 : 4;
       ctx.save();
       ctx.fillStyle = player.color;
-      ctx.shadowBlur = index === 0 ? 18 : 10;
+      ctx.shadowBlur = index === 0 ? 20 : 12;
       ctx.shadowColor = player.glow;
       ctx.fillRect(x + inset, y + inset, CELL_SIZE - inset * 2, CELL_SIZE - inset * 2);
+      if (index === 0) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + inset + 1, y + inset + 1, CELL_SIZE - inset * 2 - 2, CELL_SIZE - inset * 2 - 2);
+      }
       ctx.restore();
     });
   });
@@ -86,6 +118,7 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
 
 export default function App() {
   const [state, setState] = useState(() => createGameState());
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const accumulatorRef = useRef(0);
   const lastFrameRef = useRef<number | null>(null);
@@ -136,6 +169,9 @@ export default function App() {
       const lastFrame = lastFrameRef.current ?? time;
       const delta = time - lastFrame;
       lastFrameRef.current = time;
+      if (stateRef.current.phase !== 'paused') {
+        setNowMs(Date.now());
+      }
 
       setState((current) => {
         if (current.phase === 'menu' || current.phase === 'finished' || current.phase === 'paused') {
@@ -182,6 +218,8 @@ export default function App() {
   }, [state]);
 
   const countdownLabel = useMemo(() => getCountdownLabel(state), [state]);
+  const p1RespawnCountdown = getRespawnCountdown(state.players.p1, nowMs);
+  const p2RespawnCountdown = getRespawnCountdown(state.players.p2, nowMs);
 
   return (
     <main className="shell" data-phase={state.phase}>
@@ -197,11 +235,15 @@ export default function App() {
           </div>
           <div data-testid="p1-score-card">
             <span>P1</span>
-            <strong data-testid="p1-score">{state.players.p1.score}</strong>
+            <strong data-testid="p1-score">
+              {p1RespawnCountdown ? `Respawn ${p1RespawnCountdown}` : state.players.p1.score}
+            </strong>
           </div>
           <div data-testid="p2-score-card">
             <span>P2</span>
-            <strong data-testid="p2-score">{state.players.p2.score}</strong>
+            <strong data-testid="p2-score">
+              {p2RespawnCountdown ? `Respawn ${p2RespawnCountdown}` : state.players.p2.score}
+            </strong>
           </div>
         </div>
       </section>

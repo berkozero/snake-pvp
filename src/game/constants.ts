@@ -5,7 +5,7 @@ export const BOARD_HEIGHT = 24;
 export const CELL_SIZE = 22;
 export const MATCH_DURATION_MS = 180_000;
 export const COUNTDOWN_MS = 2_400;
-export const RESPAWN_DELAY_MS = 1_500;
+export const RESPAWN_DELAY_MS = 3_000;
 export const START_LENGTH = 4;
 export const TICK_MS = 165;
 export const PAUSE_KEY = ' ';
@@ -13,8 +13,8 @@ export const PAUSE_KEY = ' ';
 const PLAYER_CONFIG: Record<PlayerId, Pick<PlayerState, 'name' | 'color' | 'glow' | 'keyMap'>> = {
   p1: {
     name: 'P1',
-    color: '#73f0ff',
-    glow: 'rgba(115, 240, 255, 0.4)',
+    color: '#7cff7a',
+    glow: 'rgba(124, 255, 122, 0.24)',
     keyMap: {
       w: 'up',
       a: 'left',
@@ -24,8 +24,8 @@ const PLAYER_CONFIG: Record<PlayerId, Pick<PlayerState, 'name' | 'color' | 'glow
   },
   p2: {
     name: 'P2',
-    color: '#ff6b6b',
-    glow: 'rgba(255, 107, 107, 0.38)',
+    color: '#56a8ff',
+    glow: 'rgba(86, 168, 255, 0.28)',
     keyMap: {
       i: 'up',
       j: 'left',
