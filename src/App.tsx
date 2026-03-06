@@ -1,35 +1,77 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CELL_SIZE, PAUSE_KEY } from './game/constants';
+import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE, MATCH_DURATION_MS } from './game/constants';
+import { formatTime } from './game/engine';
+import type { Cell, PlayerId } from './game/types';
 import {
-  createGameState,
-  formatTime,
-  getCountdownLabel,
-  getRespawnCountdown,
-  getWinnerLabel,
-  queueDirection,
-  restartGame,
-  serializeState,
-  startCountdown,
-  tick,
-  togglePause,
-} from './game/engine';
-import type { RoundState } from './game/types';
+  PROTOCOL_VERSION,
+  ROOM_ID,
+  type ActionRejectedMessage,
+  type ClientMessage,
+  type GameSnapshot,
+  type JoinRejectedMessage,
+  type ResultSnapshot,
+  type RoomPhase,
+  type RoomSnapshotMessage,
+  type ServerMessage,
+} from './net/protocol';
 import SnakeWordmark from './SnakeWordmark';
+import { getGameServerUrl } from './config';
 
-const CANVAS_WIDTH = 36 * CELL_SIZE;
-const CANVAS_HEIGHT = 24 * CELL_SIZE;
+type ClientPayload = ClientMessage extends infer T
+  ? T extends ClientMessage
+    ? Omit<T, 'v' | 'roomId' | 'roundId'>
+    : never
+  : never;
+
+const CANVAS_WIDTH = BOARD_WIDTH * CELL_SIZE;
+const CANVAS_HEIGHT = BOARD_HEIGHT * CELL_SIZE;
+const RESUME_TOKEN_KEY = 'snake-pvp-resume-token';
+const EMPTY_SNAPSHOT: RoomSnapshotMessage = {
+  v: PROTOCOL_VERSION,
+  type: 'room_snapshot',
+  roomId: ROOM_ID,
+  roundId: null,
+  serverTime: 0,
+  phase: 'empty',
+  tickSeq: 0,
+  yourSlot: null,
+  resumeToken: null,
+  slots: {
+    p1: { claimed: false, name: null, connected: false },
+    p2: { claimed: false, name: null, connected: false },
+  },
+  game: null,
+  result: null,
+};
+const DIRECTION_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+  w: 'up',
+  a: 'left',
+  s: 'down',
+  d: 'right',
+  ArrowUp: 'up',
+  ArrowLeft: 'left',
+  ArrowDown: 'down',
+  ArrowRight: 'right',
+};
+const PLAYER_COLORS: Record<PlayerId, { fill: string; glow: string }> = {
+  p1: { fill: '#7cff7a', glow: 'rgba(124, 255, 122, 0.24)' },
+  p2: { fill: '#56a8ff', glow: 'rgba(86, 168, 255, 0.28)' },
+};
 
 declare global {
   interface Window {
-    __SNAKE_PVP_STATE__?: ReturnType<typeof serializeState>;
+    __SNAKE_PVP_STATE__?: RoomSnapshotMessage;
     __SNAKE_PVP_TEST_API__?: {
-      setState: (updater: (current: RoundState) => RoundState) => void;
-      snapshot: () => ReturnType<typeof serializeState>;
+      snapshot: () => RoomSnapshotMessage;
     };
   }
 }
 
-function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
+function nextRequestId(): string {
+  return `req_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null): void {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   const grid = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -77,8 +119,12 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
   ctx.strokeRect(6.5, 6.5, CANVAS_WIDTH - 13, CANVAS_HEIGHT - 13);
   ctx.restore();
 
-  const foodX = state.food.x * CELL_SIZE + CELL_SIZE / 2;
-  const foodY = state.food.y * CELL_SIZE + CELL_SIZE / 2;
+  if (!game) {
+    return;
+  }
+
+  const foodX = game.food.x * CELL_SIZE + CELL_SIZE / 2;
+  const foodY = game.food.y * CELL_SIZE + CELL_SIZE / 2;
   ctx.save();
   ctx.shadowBlur = 22;
   ctx.shadowColor = 'rgba(255, 158, 59, 0.75)';
@@ -92,15 +138,18 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
   ctx.fill();
   ctx.restore();
 
-  Object.values(state.players).forEach((player) => {
+  (['p1', 'p2'] as PlayerId[]).forEach((playerId) => {
+    const player = game.players[playerId];
+    const colors = PLAYER_COLORS[playerId];
     player.segments.forEach((segment, index) => {
       const x = segment.x * CELL_SIZE;
       const y = segment.y * CELL_SIZE;
       const inset = index === 0 ? 2 : 4;
+
       ctx.save();
-      ctx.fillStyle = player.color;
+      ctx.fillStyle = colors.fill;
       ctx.shadowBlur = index === 0 ? 20 : 12;
-      ctx.shadowColor = player.glow;
+      ctx.shadowColor = colors.glow;
       ctx.fillRect(x + inset, y + inset, CELL_SIZE - inset * 2, CELL_SIZE - inset * 2);
       if (index === 0) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
@@ -110,53 +159,252 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
       ctx.restore();
     });
   });
+}
 
-  if (state.phase === 'paused') {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+function getWinnerLabel(result: ResultSnapshot | null, snapshot: RoomSnapshotMessage): string {
+  if (!result) {
+    return 'Match Over';
   }
+
+  if (result.winner === 'draw') {
+    return 'Draw Game';
+  }
+
+  const winnerName = snapshot.slots[result.winner].name ?? result.winner.toUpperCase();
+  if (result.reason === 'forfeit') {
+    return `${winnerName} Wins by Forfeit`;
+  }
+
+  return `${winnerName} Wins`;
+}
+
+function getStatusMessage(phase: RoomPhase, yourSlot: PlayerId | null): string {
+  if (phase === 'empty') {
+    return 'Claim a slot to open the room.';
+  }
+  if (phase === 'waiting') {
+    return yourSlot ? 'Waiting for the other player to connect.' : 'One slot is claimed. Join the other side.';
+  }
+  if (phase === 'ready') {
+    return yourSlot ? 'Both players are here. Either player can start.' : 'Room is full and ready.';
+  }
+  if (phase === 'countdown') {
+    return yourSlot ? 'Countdown live. Pre-turns are accepted now.' : 'Match starting.';
+  }
+  if (phase === 'playing') {
+    return yourSlot ? 'Authoritative online match in progress.' : 'Match in progress.';
+  }
+
+  return 'Result locked in. Room resets automatically.';
+}
+
+function getPlayerName(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
+  return snapshot.slots[slot].name ?? slot.toUpperCase();
+}
+
+function normalizeKey(key: string): string {
+  if (key.startsWith('Arrow')) {
+    return key;
+  }
+
+  return key.toLowerCase();
+}
+
+function cellOrDash(cell: Cell | null): string {
+  if (!cell) {
+    return '--';
+  }
+
+  return `${cell.x},${cell.y}`;
 }
 
 export default function App() {
-  const [state, setState] = useState(() => createGameState());
+  const [snapshot, setSnapshot] = useState<RoomSnapshotMessage>(EMPTY_SNAPSHOT);
+  const [p1Name, setP1Name] = useState('');
+  const [p2Name, setP2Name] = useState('');
+  const [message, setMessage] = useState('Connect to the server to claim a slot.');
+  const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const accumulatorRef = useRef(0);
-  const lastFrameRef = useRef<number | null>(null);
-  const stateRef = useRef(state);
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const pingTimerRef = useRef<number | null>(null);
+  const inputSeqRef = useRef(0);
+  const snapshotRef = useRef(snapshot);
+  const resumeTokenRef = useRef<string | null>(window.localStorage.getItem(RESUME_TOKEN_KEY));
 
   useEffect(() => {
-    stateRef.current = state;
-    window.__SNAKE_PVP_STATE__ = serializeState(state);
-  }, [state]);
+    snapshotRef.current = snapshot;
+    window.__SNAKE_PVP_STATE__ = snapshot;
+  }, [snapshot]);
 
   useEffect(() => {
     window.__SNAKE_PVP_TEST_API__ = {
-      setState: (updater) => {
-        setState((current) => updater(current));
-      },
-      snapshot: () => serializeState(stateRef.current),
+      snapshot: () => snapshotRef.current,
     };
 
     return () => {
-      delete window.__SNAKE_PVP_TEST_API__;
       delete window.__SNAKE_PVP_STATE__;
+      delete window.__SNAKE_PVP_TEST_API__;
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const connect = () => {
+      if (disposed) {
+        return;
+      }
+
+      const socket = new WebSocket(getGameServerUrl());
+      socketRef.current = socket;
+      setReconnecting(true);
+
+      socket.addEventListener('open', () => {
+        setConnected(true);
+        setReconnecting(false);
+        setMessage(resumeTokenRef.current ? 'Connected. Restoring your slot.' : 'Connected. Claim a slot to play.');
+
+        if (resumeTokenRef.current) {
+          socket.send(
+            JSON.stringify({
+              v: PROTOCOL_VERSION,
+              type: 'resume_session',
+              roomId: ROOM_ID,
+              roundId: snapshotRef.current.roundId,
+              requestId: nextRequestId(),
+              resumeToken: resumeTokenRef.current,
+            } satisfies ClientMessage),
+          );
+        }
+
+        if (pingTimerRef.current !== null) {
+          window.clearInterval(pingTimerRef.current);
+        }
+
+        pingTimerRef.current = window.setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            const payload: ClientMessage = {
+              v: PROTOCOL_VERSION,
+              type: 'ping',
+              roomId: ROOM_ID,
+              roundId: snapshotRef.current.roundId,
+              clientTime: Date.now(),
+            };
+            socket.send(JSON.stringify(payload));
+          }
+        }, 2_000);
+      });
+
+      socket.addEventListener('message', (event) => {
+        const incoming = JSON.parse(String(event.data)) as ServerMessage;
+
+        if (incoming.type === 'room_snapshot') {
+          resumeTokenRef.current = incoming.resumeToken;
+          if (incoming.resumeToken) {
+            window.localStorage.setItem(RESUME_TOKEN_KEY, incoming.resumeToken);
+          } else {
+            window.localStorage.removeItem(RESUME_TOKEN_KEY);
+          }
+          if (incoming.yourSlot === null) {
+            inputSeqRef.current = 0;
+          }
+          setSnapshot(incoming);
+          setMessage(getStatusMessage(incoming.phase, incoming.yourSlot));
+          return;
+        }
+
+        if (incoming.type === 'join_rejected') {
+          const reasons: Record<JoinRejectedMessage['reason'], string> = {
+            slot_taken: 'That slot is already claimed.',
+            duplicate_name: 'Names must be unique within the room.',
+            invalid_name: 'Use a non-empty name up to 16 characters.',
+            room_locked: 'The room is locked until the current match resets.',
+            already_claimed: 'This client already owns a slot.',
+            slot_reserved: 'Slot reserved, try again in a few seconds.',
+          };
+          setMessage(reasons[incoming.reason]);
+          return;
+        }
+
+        if (incoming.type === 'action_rejected') {
+          const reasons: Record<ActionRejectedMessage['reason'], string> = {
+            not_owner: 'That slot can no longer be restored.',
+            invalid_phase: 'That action is not allowed right now.',
+            stale_input: 'That input arrived too late.',
+            invalid_direction: 'That turn was not valid.',
+          };
+          if (incoming.reason === 'not_owner' && resumeTokenRef.current && snapshotRef.current.yourSlot === null) {
+            resumeTokenRef.current = null;
+            window.localStorage.removeItem(RESUME_TOKEN_KEY);
+          }
+          setMessage(reasons[incoming.reason]);
+          return;
+        }
+      });
+
+      socket.addEventListener('close', () => {
+        if (disposed) {
+          return;
+        }
+
+        setConnected(false);
+        setReconnecting(true);
+        setMessage(resumeTokenRef.current ? 'Disconnected. Trying to restore your slot.' : 'Disconnected. Reconnecting as a viewer.');
+
+        if (pingTimerRef.current !== null) {
+          window.clearInterval(pingTimerRef.current);
+          pingTimerRef.current = null;
+        }
+
+        reconnectTimerRef.current = window.setTimeout(connect, 1_500);
+      });
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+      if (pingTimerRef.current !== null) {
+        window.clearInterval(pingTimerRef.current);
+      }
+      socketRef.current?.close();
     };
   }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Enter' && (stateRef.current.phase === 'menu' || stateRef.current.phase === 'finished')) {
-        setState(() => startCountdown(restartGame()));
+      const current = snapshotRef.current;
+      if (!current.yourSlot) {
         return;
       }
 
-      if (event.key === PAUSE_KEY) {
+      if (event.key === 'Enter' && current.phase === 'ready') {
         event.preventDefault();
-        setState((current) => togglePause(current));
+        sendMessage({
+          type: 'start_match',
+          requestId: nextRequestId(),
+        });
         return;
       }
 
-      setState((current) => queueDirection(current, event.key));
+      const direction = DIRECTION_KEYS[normalizeKey(event.key)];
+      if (!direction) {
+        return;
+      }
+
+      event.preventDefault();
+      inputSeqRef.current += 1;
+      sendMessage({
+        type: 'input_direction',
+        direction,
+        inputSeq: inputSeqRef.current,
+        clientTime: Date.now(),
+      });
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -164,93 +412,73 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    let frame = 0;
-    const loop = (time: number) => {
-      const lastFrame = lastFrameRef.current ?? time;
-      const delta = time - lastFrame;
-      lastFrameRef.current = time;
-
-      setState((current) => {
-        if (current.phase === 'menu' || current.phase === 'finished' || current.phase === 'paused') {
-          return current;
-        }
-
-        if (current.phase === 'countdown') {
-          return tick(current, delta, time).state;
-        }
-
-        accumulatorRef.current += delta;
-        let next = current;
-        while (accumulatorRef.current >= current.tickMs) {
-          const result = tick(next, current.tickMs, time);
-          next = result.state;
-          accumulatorRef.current -= current.tickMs;
-          if (next.phase === 'finished') {
-            accumulatorRef.current = 0;
-            break;
-          }
-        }
-        return next;
-      });
-
-      frame = window.requestAnimationFrame(loop);
-    };
-
-    frame = window.requestAnimationFrame(loop);
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
     }
+
     const context = canvas.getContext('2d');
     if (!context) {
       return;
     }
-    drawRound(context, state);
-  }, [state]);
 
-  const countdownLabel = useMemo(() => getCountdownLabel(state), [state]);
-  const p1RespawnCountdown = getRespawnCountdown(state.players.p1, state.clockMs);
-  const p2RespawnCountdown = getRespawnCountdown(state.players.p2, state.clockMs);
+    drawArena(context, snapshot.game);
+  }, [snapshot]);
+
+  const sendMessage = (message: ClientPayload) => {
+    if (socketRef.current?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socketRef.current.send(
+      JSON.stringify({
+        ...message,
+        v: PROTOCOL_VERSION,
+        roomId: ROOM_ID,
+        roundId: snapshotRef.current.roundId,
+      }),
+    );
+  };
+
+  const countdownLabel = useMemo(() => {
+    if (snapshot.phase !== 'countdown' || !snapshot.game) {
+      return null;
+    }
+    return `${Math.max(1, Math.ceil(snapshot.game.countdownMs / 800))}`;
+  }, [snapshot]);
+
+  const isLockedViewer =
+    !snapshot.yourSlot &&
+    (snapshot.phase === 'countdown' || snapshot.phase === 'playing' || snapshot.phase === 'ready') &&
+    snapshot.slots.p1.claimed &&
+    snapshot.slots.p2.claimed;
+  const showLobbyOverlay =
+    snapshot.phase === 'empty' ||
+    snapshot.phase === 'waiting' ||
+    (snapshot.phase === 'ready' && !isLockedViewer);
+  const showPlayerClaims = !isLockedViewer;
+  const canClaim = connected && snapshot.yourSlot === null;
+  const canStart = connected && snapshot.yourSlot !== null && snapshot.phase === 'ready';
+  const heads = snapshot.game
+    ? {
+        p1: snapshot.game.players.p1.segments[0] ?? null,
+        p2: snapshot.game.players.p2.segments[0] ?? null,
+      }
+    : { p1: null, p2: null };
 
   return (
-    <main className="shell" data-phase={state.phase}>
-      {state.phase !== 'menu' && (
-        <section className="hud-card">
-          <div className="hud-brand">
-            <SnakeWordmark className="hud-wordmark" />
-          </div>
-          <div className="status-row">
-            <div data-testid="timer-card">
-              <span>Timer</span>
-              <strong data-testid="timer-value">{formatTime(state.remainingMs)}</strong>
-            </div>
-            <div data-testid="p1-score-card">
-              <span>P1</span>
-              <strong data-testid="p1-score">
-                {p1RespawnCountdown ? `Respawn ${p1RespawnCountdown}` : state.players.p1.score}
-              </strong>
-            </div>
-            <div data-testid="p2-score-card">
-              <span>P2</span>
-              <strong data-testid="p2-score">
-                {p2RespawnCountdown ? `Respawn ${p2RespawnCountdown}` : state.players.p2.score}
-              </strong>
-            </div>
-          </div>
-        </section>
-      )}
-
+    <main className="shell" data-phase={snapshot.phase}>
       <section className="arena-card">
-        <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="arena" data-testid="game-canvas" />
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          className="arena"
+          data-testid="game-canvas"
+        />
 
-        {state.phase === 'menu' && (
-          <div className="overlay menu-overlay" data-testid="menu-overlay">
+        {showLobbyOverlay ? (
+          <div className="overlay menu-overlay" data-testid="lobby-overlay">
             <SnakeWordmark className="menu-wordmark" />
             <h2>Three minutes. Outgrow or outcut.</h2>
             <div className="controls-grid">
@@ -262,43 +490,129 @@ export default function App() {
             <button
               data-testid="start-match"
               className="start-button"
-              onClick={() => setState((current) => startCountdown(current))}
+              onClick={() => sendMessage({ type: 'start_match', requestId: nextRequestId() })}
+              disabled={!canStart}
             >
               Start Match
             </button>
           </div>
-        )}
+        ) : null}
 
-        {state.phase === 'countdown' && (
+        {snapshot.phase === 'countdown' ? (
           <div className="overlay slim" data-testid="countdown-overlay">
             <p className="eyebrow">Get ready</p>
             <h2 data-testid="countdown-value">{countdownLabel}</h2>
+            <p className="status-copy">Pre-turns are live. Movement starts when the server flips to play.</p>
           </div>
-        )}
+        ) : null}
 
-        {state.phase === 'paused' && (
-          <div className="overlay slim" data-testid="paused-overlay">
-            <p className="eyebrow">Paused</p>
-            <h2>Press Space to resume</h2>
+        {isLockedViewer ? (
+          <div className="overlay slim" data-testid="viewer-overlay">
+            <p className="eyebrow">Room Locked</p>
+            <h2>{snapshot.phase === 'finished' ? 'Match Resetting' : 'Room Full'}</h2>
+            <p className="status-copy">{message}</p>
           </div>
-        )}
+        ) : null}
 
-        {state.phase === 'finished' && (
+        {snapshot.phase === 'finished' ? (
           <div className="overlay" data-testid="finished-overlay">
-            <p className="eyebrow">Time Up</p>
-            <h2 data-testid="winner-label">{getWinnerLabel(state)}</h2>
+            <p className="eyebrow">{snapshot.result?.reason === 'forfeit' ? 'Forfeit' : 'Time Up'}</p>
+            <h2 data-testid="winner-label">{getWinnerLabel(snapshot.result, snapshot)}</h2>
             <div className="controls-grid score-grid">
-              <p><span>P1 Score</span> {state.players.p1.score}</p>
-              <p><span>P2 Score</span> {state.players.p2.score}</p>
-              <p><span>P1 Length</span> {state.players.p1.segments.length}</p>
-              <p><span>P2 Length</span> {state.players.p2.segments.length}</p>
-            </div>
-            <div className="button-row">
-              <button data-testid="play-again" onClick={() => setState(startCountdown(restartGame()))}>Play Again</button>
-              <button data-testid="back-to-title" className="secondary" onClick={() => setState(restartGame())}>Back to Title</button>
+              <p><span>{getPlayerName(snapshot, 'p1')}</span> {snapshot.game?.players.p1.score ?? 0}</p>
+              <p><span>{getPlayerName(snapshot, 'p2')}</span> {snapshot.game?.players.p2.score ?? 0}</p>
+              <p><span>P1 Head</span> {cellOrDash(heads.p1)}</p>
+              <p><span>P2 Head</span> {cellOrDash(heads.p2)}</p>
             </div>
           </div>
-        )}
+        ) : null}
+      </section>
+
+      <section className="players-card" data-testid="players-card">
+        <div className="players-title">
+          <strong>Claim your side</strong>
+        </div>
+        <div className="players-grid">
+          <article className="player-slot-card p1-slot" data-testid="slot-p1">
+            <span>P1</span>
+            <strong>{getPlayerName(snapshot, 'p1')}</strong>
+            <small>{snapshot.slots.p1.claimed ? (snapshot.slots.p1.connected ? 'Connected' : 'Reserved') : 'Open'}</small>
+            <label className="name-field player-name-field">
+              <span>Nametag</span>
+              <input
+                data-testid="name-input-p1"
+                value={p1Name}
+                maxLength={16}
+                onChange={(event) => setP1Name(event.target.value)}
+                placeholder="Enter handle"
+                disabled={!canClaim || !showPlayerClaims}
+              />
+            </label>
+            {showPlayerClaims ? (
+              <button
+                data-testid="claim-p1"
+                onClick={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p1', name: p1Name })}
+                disabled={!canClaim || (snapshot.slots.p1.claimed && snapshot.slots.p1.connected)}
+              >
+                Claim P1
+              </button>
+            ) : null}
+            {snapshot.yourSlot === 'p1' ? (
+              <button
+                data-testid="leave-slot"
+                className="secondary"
+                onClick={() => {
+                  window.localStorage.removeItem(RESUME_TOKEN_KEY);
+                  resumeTokenRef.current = null;
+                  sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
+                }}
+                disabled={!connected}
+              >
+                Leave Slot
+              </button>
+            ) : null}
+          </article>
+          <article className="player-slot-card alt" data-testid="slot-p2">
+            <span>P2</span>
+            <strong>{getPlayerName(snapshot, 'p2')}</strong>
+            <small>{snapshot.slots.p2.claimed ? (snapshot.slots.p2.connected ? 'Connected' : 'Reserved') : 'Open'}</small>
+            <label className="name-field player-name-field">
+              <span>Nametag</span>
+              <input
+                data-testid="name-input-p2"
+                value={p2Name}
+                maxLength={16}
+                onChange={(event) => setP2Name(event.target.value)}
+                placeholder="Enter handle"
+                disabled={!canClaim || !showPlayerClaims}
+              />
+            </label>
+            {showPlayerClaims ? (
+              <button
+                data-testid="claim-p2"
+                className="secondary"
+                onClick={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p2', name: p2Name })}
+                disabled={!canClaim || (snapshot.slots.p2.claimed && snapshot.slots.p2.connected)}
+              >
+                Claim P2
+              </button>
+            ) : null}
+            {snapshot.yourSlot === 'p2' ? (
+              <button
+                data-testid="leave-slot"
+                className="secondary"
+                onClick={() => {
+                  window.localStorage.removeItem(RESUME_TOKEN_KEY);
+                  resumeTokenRef.current = null;
+                  sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
+                }}
+                disabled={!connected}
+              >
+                Leave Slot
+              </button>
+            ) : null}
+          </article>
+        </div>
       </section>
 
       <section className="footer-card">

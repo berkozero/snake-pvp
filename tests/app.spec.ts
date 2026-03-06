@@ -1,100 +1,124 @@
 import { expect, test } from '@playwright/test';
 
-test('boots into the menu and starts the match flow', async ({ page }) => {
+async function joinSlot(page: import('@playwright/test').Page, name: string, slot: 'p1' | 'p2') {
   await page.goto('/');
+  await expect(page.getByTestId('players-card')).toBeVisible();
+  await page.getByTestId(slot === 'p1' ? 'name-input-p1' : 'name-input-p2').fill(name);
+  await page.getByTestId(slot === 'p1' ? 'claim-p1' : 'claim-p2').click();
+  await page.waitForFunction((expectedSlot) => window.__SNAKE_PVP_STATE__?.yourSlot === expectedSlot, slot);
+}
 
-  await expect(page.getByTestId('menu-overlay')).toBeVisible();
-  await expect(page.getByTestId('timer-card')).toHaveCount(0);
+async function snapshot(page: import('@playwright/test').Page) {
+  return page.evaluate(() => window.__SNAKE_PVP_TEST_API__?.snapshot());
+}
 
-  await page.getByTestId('start-match').click();
-  await expect(page.getByTestId('countdown-overlay')).toBeVisible();
-  await expect(page.getByTestId('timer-value')).toHaveText('3:00');
-  await page.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+async function pressGameKey(page: import('@playwright/test').Page, key: string) {
+  await page.evaluate((nextKey) => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: nextKey, bubbles: true }));
+  }, key);
+}
 
-  await expect(page.locator('[data-phase="playing"]')).toBeVisible();
-  await expect(page.getByTestId('game-canvas')).toBeVisible();
+test.describe.configure({ mode: 'serial' });
+
+test('two clients join, get ownership, and start a live match', async ({ browser }) => {
+  const p1 = await browser.newPage();
+  const p2 = await browser.newPage();
+
+  await joinSlot(p1, 'Alpha', 'p1');
+  await joinSlot(p2, 'Bravo', 'p2');
+
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'ready');
+  await p2.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'ready');
+
+  await pressGameKey(p1, 'Enter');
+  await expect(p1.getByTestId('countdown-overlay')).toBeVisible();
+  await expect(p2.getByTestId('countdown-overlay')).toBeVisible();
+
+  await pressGameKey(p1, 'w');
+
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+  await p2.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.game?.players.p1.direction === 'up');
+
+  let p1State = await snapshot(p1);
+  let p2State = await snapshot(p2);
+
+  expect(p1State?.yourSlot).toBe('p1');
+  expect(p2State?.yourSlot).toBe('p2');
+  expect(p1State?.game?.players.p1.direction).toBe('up');
+  expect(p1State?.phase).toBe('playing');
+  expect(p2State?.phase).toBe('playing');
+
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'empty');
+  await p2.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'empty');
+
+  await p1.close();
+  await p2.close();
 });
 
-test('pause freezes the timer and resume continues it', async ({ page }) => {
-  await page.goto('/');
-  await page.getByTestId('start-match').click();
-  await page.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+test('third client sees full-room state only', async ({ browser }) => {
+  const p1 = await browser.newPage();
+  const p2 = await browser.newPage();
+  const viewer = await browser.newPage();
 
-  const beforePause = await page.getByTestId('timer-value').textContent();
-  await page.getByTestId('game-canvas').click();
-  await page.keyboard.press('Space');
-  await expect(page.getByTestId('paused-overlay')).toBeVisible();
-  await page.waitForTimeout(700);
-  await expect(page.getByTestId('timer-value')).toHaveText(beforePause ?? '');
+  await joinSlot(p1, 'Alpha', 'p1');
+  await joinSlot(p2, 'Bravo', 'p2');
+  await viewer.goto('/');
 
-  await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
-  await expect(page.getByTestId('paused-overlay')).toBeHidden();
+  await expect(viewer.getByTestId('viewer-overlay')).toBeVisible();
+  await expect(viewer.getByTestId('claim-p1')).toHaveCount(0);
+  await expect(viewer.getByTestId('claim-p2')).toHaveCount(0);
+
+  await p2.getByTestId('leave-slot').click();
+  await expect(viewer.getByTestId('lobby-overlay')).toBeVisible();
+  await p1.getByTestId('leave-slot').click();
+
+  await p1.close();
+  await p2.close();
+  await viewer.close();
 });
 
-test('keyboard controls move both players', async ({ page }) => {
-  await page.goto('/');
-  await page.getByTestId('start-match').click();
-  await page.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+test('disconnect grace restores the same player and still blocks a fresh viewer', async ({ browser }) => {
+  const owner = await browser.newPage();
+  const challenger = await browser.newPage();
 
-  const startState = await page.evaluate(() => window.__SNAKE_PVP_TEST_API__?.snapshot());
-  await page.getByTestId('game-canvas').click();
-  await page.keyboard.press('w');
-  await page.keyboard.press('i');
-  await page.waitForTimeout(220);
+  await joinSlot(owner, 'Alpha', 'p1');
+  await owner.reload();
+  await challenger.waitForTimeout(250);
+  await owner.waitForFunction(() => window.__SNAKE_PVP_STATE__?.yourSlot === 'p1');
+  await expect(owner.getByTestId('slot-p1')).toContainText('Alpha');
 
-  const nextState = await page.evaluate(() => window.__SNAKE_PVP_TEST_API__?.snapshot());
-  expect(startState?.players.p1.head).not.toEqual(nextState?.players.p1.head);
-  expect(startState?.players.p2.head).not.toEqual(nextState?.players.p2.head);
-  expect(nextState?.players.p1.direction).toBe('up');
-  expect(nextState?.players.p2.direction).toBe('up');
+  await challenger.goto('/');
+  await expect(challenger.getByTestId('players-card')).toBeVisible();
+  await expect(challenger.getByTestId('slot-p1')).toContainText('Connected');
+  await expect(challenger.getByTestId('claim-p1')).toBeDisabled();
+
+  await owner.getByTestId('leave-slot').click();
+  await owner.close();
+  await challenger.close();
 });
 
-test('shows the winner screen and can return to title', async ({ page }) => {
-  await page.goto('/');
-  await page.evaluate(() => {
-    window.__SNAKE_PVP_TEST_API__?.setState((current) => ({
-      ...current,
-      phase: 'finished',
-      winner: 'p1',
-      players: {
-        ...current.players,
-        p1: { ...current.players.p1, score: 5 },
-        p2: { ...current.players.p2, score: 2 },
-      },
-    }));
+test('timer, result, and reset are driven by server snapshots', async ({ browser }) => {
+  const p1 = await browser.newPage();
+  const p2 = await browser.newPage();
+
+  await joinSlot(p1, 'Alpha', 'p1');
+  await joinSlot(p2, 'Bravo', 'p2');
+  await p1.getByTestId('start-match').click();
+
+  await p1.waitForFunction(() => {
+    const remainingMs = window.__SNAKE_PVP_STATE__?.game?.remainingMs;
+    return typeof remainingMs === 'number' && remainingMs <= 1_000;
   });
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'finished');
+  await expect(p1.getByTestId('finished-overlay')).toBeVisible();
+  await expect(p1.getByTestId('winner-label')).toHaveText(/Wins|Draw/);
 
-  await expect(page.getByTestId('finished-overlay')).toBeVisible();
-  await expect(page.getByTestId('winner-label')).toHaveText('P1 Wins');
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'empty');
+  await expect(p1.getByTestId('lobby-overlay')).toBeVisible();
+  await expect(p1.getByTestId('slot-p1')).toContainText('P1');
+  await expect(p1.getByTestId('slot-p2')).toContainText('P2');
 
-  await page.getByTestId('back-to-title').click();
-  await expect(page.getByTestId('menu-overlay')).toBeVisible();
-  await expect(page.getByTestId('timer-card')).toHaveCount(0);
-});
-
-test('shows a respawn countdown in the dead player HUD card', async ({ page }) => {
-  const respawnAt = Date.now() + 2300;
-
-  await page.goto('/');
-  await page.evaluate((targetRespawnAt) => {
-    window.__SNAKE_PVP_TEST_API__?.setState((current) => ({
-      ...current,
-      phase: 'playing',
-      countdownMs: 0,
-      players: {
-        ...current.players,
-        p2: {
-          ...current.players.p2,
-          alive: false,
-          segments: [],
-          respawnAt: targetRespawnAt,
-        },
-      },
-    }));
-  }, respawnAt);
-
-  await expect(page.getByTestId('p2-score')).toContainText('Respawn');
-  await page.waitForTimeout(900);
-  await expect(page.getByTestId('p2-score')).toContainText(/Respawn [12]/);
+  await p1.close();
+  await p2.close();
 });

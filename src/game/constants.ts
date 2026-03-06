@@ -7,7 +7,7 @@ export const MATCH_DURATION_MS = 180_000;
 export const COUNTDOWN_MS = 2_400;
 export const RESPAWN_DELAY_MS = 3_000;
 export const START_LENGTH = 4;
-export const TICK_MS = 165;
+export const TICK_MS = 100;
 export const PAUSE_KEY = ' ';
 
 const PLAYER_CONFIG: Record<PlayerId, Pick<PlayerState, 'name' | 'color' | 'glow' | 'keyMap'>> = {

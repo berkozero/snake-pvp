@@ -211,7 +211,7 @@ describe('engine', () => {
 
   it('declares a draw when score and length are tied at timeout', () => {
     const state = makePlayingState({
-      remainingMs: 125,
+      remainingMs: 100,
       players: {
         p1: { score: 3, segments: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }, { x: 1, y: 4 }] },
         p2: { score: 3, segments: [{ x: 10, y: 4 }, { x: 11, y: 4 }, { x: 12, y: 4 }, { x: 13, y: 4 }] },
