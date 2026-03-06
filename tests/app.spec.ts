@@ -85,7 +85,7 @@ test('shows a respawn countdown in the dead player HUD card', async ({ page }) =
           ...current.players.p2,
           alive: false,
           segments: [],
-          respawnAt: Date.now() + 2300,
+          respawnAt: current.clockMs + 2300,
         },
       },
     }));

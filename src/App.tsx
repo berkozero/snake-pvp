@@ -14,6 +14,7 @@ import {
   togglePause,
 } from './game/engine';
 import type { RoundState } from './game/types';
+import SnakeWordmark from './SnakeWordmark';
 
 const CANVAS_WIDTH = 36 * CELL_SIZE;
 const CANVAS_HEIGHT = 24 * CELL_SIZE;
@@ -118,7 +119,6 @@ function drawRound(ctx: CanvasRenderingContext2D, state: RoundState): void {
 
 export default function App() {
   const [state, setState] = useState(() => createGameState());
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const accumulatorRef = useRef(0);
   const lastFrameRef = useRef<number | null>(null);
@@ -169,9 +169,6 @@ export default function App() {
       const lastFrame = lastFrameRef.current ?? time;
       const delta = time - lastFrame;
       lastFrameRef.current = time;
-      if (stateRef.current.phase !== 'paused') {
-        setNowMs(Date.now());
-      }
 
       setState((current) => {
         if (current.phase === 'menu' || current.phase === 'finished' || current.phase === 'paused') {
@@ -218,15 +215,15 @@ export default function App() {
   }, [state]);
 
   const countdownLabel = useMemo(() => getCountdownLabel(state), [state]);
-  const p1RespawnCountdown = getRespawnCountdown(state.players.p1, nowMs);
-  const p2RespawnCountdown = getRespawnCountdown(state.players.p2, nowMs);
+  const p1RespawnCountdown = getRespawnCountdown(state.players.p1, state.clockMs);
+  const p2RespawnCountdown = getRespawnCountdown(state.players.p2, state.clockMs);
 
   return (
     <main className="shell" data-phase={state.phase}>
       <section className="hud-card">
-        <div>
+        <div className="hud-brand">
           <p className="eyebrow">Local Arcade Duel</p>
-          <h1>Snake PVP</h1>
+          <SnakeWordmark className="hud-wordmark" />
         </div>
         <div className="status-row">
           <div data-testid="timer-card">
@@ -252,8 +249,9 @@ export default function App() {
         <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="arena" data-testid="game-canvas" />
 
         {state.phase === 'menu' && (
-          <div className="overlay" data-testid="menu-overlay">
-            <p className="eyebrow">Retro Nokia energy. Modern local duel.</p>
+          <div className="overlay menu-overlay" data-testid="menu-overlay">
+            <p className="eyebrow">Retro duel system // local versus on one keyboard</p>
+            <SnakeWordmark className="menu-wordmark" />
             <h2>One keyboard. Three minutes. Outgrow or outcut.</h2>
             <div className="controls-grid">
               <p><span>P1</span> WASD</p>

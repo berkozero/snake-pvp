@@ -85,6 +85,10 @@ button.secondary {
   align-items: center;
 }
 
+.hud-brand {
+  min-width: 0;
+}
+
 .hud-card h1,
 .overlay h2 {
   margin: 0;
@@ -184,6 +188,30 @@ button.secondary {
   backdrop-filter: blur(6px);
 }
 
+.menu-overlay {
+  justify-items: center;
+  gap: 20px;
+  padding-block: 36px;
+}
+
+.menu-wordmark {
+  width: min(100%, 860px);
+  height: auto;
+  display: block;
+}
+
+.hud-wordmark {
+  width: clamp(220px, 28vw, 340px);
+  height: auto;
+  display: block;
+}
+
+.menu-overlay h2 {
+  max-width: 18ch;
+  font-size: clamp(1.35rem, 2.9vw, 2.7rem);
+  line-height: 0.96;
+}
+
 .overlay.slim {
   gap: 10px;
 }
@@ -217,5 +245,30 @@ button.secondary {
   .footer-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .hud-wordmark {
+    width: min(100%, 320px);
+  }
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .menu-overlay {
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .menu-wordmark {
+    width: min(100%, 620px);
+  }
+
+  .menu-overlay h2 {
+    max-width: 16ch;
+    font-size: clamp(1.15rem, 6.5vw, 1.85rem);
   }
 }

@@ -88,6 +88,7 @@ export function createInitialState(randomFood: Cell): RoundState {
   return {
     phase: 'menu',
     board: { width: BOARD_WIDTH, height: BOARD_HEIGHT },
+    clockMs: 0,
     players: {
       p1: makeStartingSnake('p1'),
       p2: makeStartingSnake('p2'),

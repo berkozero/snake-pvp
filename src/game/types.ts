@@ -29,6 +29,7 @@ export type RoundState = {
     width: number;
     height: number;
   };
+  clockMs: number;
   players: Record<PlayerId, PlayerState>;
   food: Cell;
   remainingMs: number;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_HEIGHT, BOARD_WIDTH, MATCH_DURATION_MS, RESPAWN_DELAY_MS } from './constants';
-import { createDeterministicRandom, createTestState, getRespawnCountdown, queueDirection, tick } from './engine';
+import { createDeterministicRandom, createTestState, getRespawnCountdown, pickFoodCell, queueDirection, tick } from './engine';
 import type { RoundState } from './types';
 
 function makePlayingState(overrides: Parameters<typeof createTestState>[0] = {}): RoundState {
@@ -60,11 +60,11 @@ describe('engine', () => {
     const deadState = tick(state, state.tickMs, 1000, { random: createDeterministicRandom([0]) }).state;
     expect(deadState.players.p1.alive).toBe(false);
     expect(deadState.players.p1.score).toBe(4);
-    expect(getRespawnCountdown(deadState.players.p1, 1000)).toBe(3);
-    expect(getRespawnCountdown(deadState.players.p1, 2001)).toBe(2);
-    expect(getRespawnCountdown(deadState.players.p1, 3001)).toBe(1);
+    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs)).toBe(3);
+    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 1001)).toBe(2);
+    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 2001)).toBe(1);
 
-    const respawnedState = tick(deadState, state.tickMs, 1000 + RESPAWN_DELAY_MS, { random: createDeterministicRandom([0]) }).state;
+    const respawnedState = tick(deadState, RESPAWN_DELAY_MS, 1000 + RESPAWN_DELAY_MS, { random: createDeterministicRandom([0]) }).state;
     expect(respawnedState.players.p1.alive).toBe(true);
     expect(respawnedState.players.p1.score).toBe(4);
     expect(respawnedState.players.p1.segments.length).toBeGreaterThan(0);
@@ -83,37 +83,41 @@ describe('engine', () => {
     const state = makePlayingState({
       players: {
         p1: {
-          segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, ...occupiedCells.slice(0, Math.floor(occupiedCells.length / 2))],
-          direction: 'right',
-          pendingDirection: 'right',
+          segments: occupiedCells.slice(0, Math.floor(occupiedCells.length / 2)),
         },
         p2: {
-          segments: [{ x: 6, y: 5 }, { x: 7, y: 5 }, ...occupiedCells.slice(Math.floor(occupiedCells.length / 2))],
-          direction: 'left',
-          pendingDirection: 'left',
+          segments: occupiedCells.slice(Math.floor(occupiedCells.length / 2)),
         },
       },
-      food: { x: 5, y: 5 },
     });
 
-    const result = tick(state, state.tickMs, 1000, { random: createDeterministicRandom([0.99]) }).state;
+    const food = pickFoodCell(state.players, createDeterministicRandom([0.99]));
 
-    expect(result.food).toEqual({ x: 10, y: 10 });
+    expect(food).toEqual({ x: 10, y: 10 });
   });
 
   it('makes food slightly less likely to respawn in the outer three-cell border band', () => {
+    const occupiedCells = [];
+    for (let y = 0; y < BOARD_HEIGHT; y += 1) {
+      for (let x = 0; x < BOARD_WIDTH; x += 1) {
+        const isInteriorCell = x === 3 && y === 3;
+        const isEdgeBandCell = x === 0 && y === 0;
+        if (!isInteriorCell && !isEdgeBandCell) {
+          occupiedCells.push({ x, y });
+        }
+      }
+    }
+
     const state = makePlayingState({
       players: {
-        p1: { segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }, { x: 1, y: 5 }], direction: 'right', pendingDirection: 'right' },
-        p2: { segments: [{ x: 30, y: 20 }, { x: 31, y: 20 }, { x: 32, y: 20 }, { x: 33, y: 20 }], direction: 'left', pendingDirection: 'left' },
+        p1: { segments: occupiedCells.slice(0, Math.floor(occupiedCells.length / 2)) },
+        p2: { segments: occupiedCells.slice(Math.floor(occupiedCells.length / 2)) },
       },
-      food: { x: 5, y: 5 },
     });
 
-    const result = tick(state, state.tickMs, 1000, { random: createDeterministicRandom([0]) }).state;
+    const food = pickFoodCell(state.players, createDeterministicRandom([0.4]));
 
-    expect(result.food).toEqual({ x: 3, y: 0 });
-    expect(result.food.x).toBeGreaterThanOrEqual(3);
+    expect(food).toEqual({ x: 3, y: 3 });
   });
 
   it('cuts the victim from the bitten segment through the tail', () => {

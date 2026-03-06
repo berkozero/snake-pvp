@@ -259,7 +259,7 @@ type MoveData = {
   ateFood: boolean;
 };
 
-export function tick(state: RoundState, deltaMs: number, nowMs: number, options: GameRuntimeOptions = {}): TickResult {
+export function tick(state: RoundState, deltaMs: number, _nowMs: number, options: GameRuntimeOptions = {}): TickResult {
   const random = options.random ?? Math.random;
 
   if (state.phase === 'menu' || state.phase === 'finished') {
@@ -273,13 +273,17 @@ export function tick(state: RoundState, deltaMs: number, nowMs: number, options:
   if (state.phase === 'countdown') {
     const countdownMs = Math.max(0, state.countdownMs - deltaMs);
     if (countdownMs === 0) {
-      return { state: { ...state, phase: 'playing', countdownMs: 0 }, events: ['countdown-complete'] };
+      return {
+        state: { ...state, phase: 'playing', countdownMs: 0, clockMs: state.clockMs + deltaMs },
+        events: ['countdown-complete'],
+      };
     }
-    return { state: { ...state, countdownMs }, events: [] };
+    return { state: { ...state, countdownMs, clockMs: state.clockMs + deltaMs }, events: [] };
   }
 
   const workingState: RoundState = {
     ...state,
+    clockMs: state.clockMs + deltaMs,
     remainingMs: Math.max(0, state.remainingMs - deltaMs),
     players: { ...state.players },
   };
@@ -294,7 +298,7 @@ export function tick(state: RoundState, deltaMs: number, nowMs: number, options:
 
   for (const id of PLAYER_IDS) {
     const player = workingState.players[id];
-    if (!player.alive && player.respawnAt !== null && nowMs >= player.respawnAt) {
+    if (!player.alive && player.respawnAt !== null && workingState.clockMs >= player.respawnAt) {
       workingState.players[id] = makeRespawnedPlayer(player, respawnOccupied, random);
       for (const segment of workingState.players[id].segments) {
         respawnOccupied.add(cellKey(segment));
@@ -421,7 +425,7 @@ export function tick(state: RoundState, deltaMs: number, nowMs: number, options:
   }
 
   for (const id of deaths) {
-    playersAfterMove[id] = killPlayer(playersAfterMove[id], nowMs);
+    playersAfterMove[id] = killPlayer(playersAfterMove[id], workingState.clockMs);
     events.push(`${id}-death`);
   }
 
@@ -488,9 +492,9 @@ export function createTestState(overrides: CreateStateOverrides = {}, options: G
 }
 
 export function serializeState(state: RoundState) {
-  const now = Date.now();
   return {
     phase: state.phase,
+    clockMs: state.clockMs,
     remainingMs: state.remainingMs,
     winner: state.winner,
     food: cloneCell(state.food),
@@ -502,8 +506,8 @@ export function serializeState(state: RoundState) {
           {
             alive: player.alive,
             score: player.score,
-            respawnRemainingMs: getRespawnRemainingMs(player, now),
-            respawnCountdown: getRespawnCountdown(player, now),
+            respawnRemainingMs: getRespawnRemainingMs(player, state.clockMs),
+            respawnCountdown: getRespawnCountdown(player, state.clockMs),
             direction: player.direction,
             pendingDirection: player.pendingDirection,
             length: player.segments.length,
