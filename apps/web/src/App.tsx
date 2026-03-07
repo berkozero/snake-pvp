@@ -34,6 +34,17 @@ type RenderSegment = {
   y: number;
 };
 
+type ViewerUiState = {
+  isWatcher: boolean;
+  isAiOnlyRoom: boolean;
+  isLockedViewer: boolean;
+  showWatchOverlay: boolean;
+  showLobbyOverlay: boolean;
+  showPlayerClaims: boolean;
+  canClaim: boolean;
+  canStart: boolean;
+};
+
 type PlayerSlotCardProps = {
   slot: PlayerId;
   slotName: string;
@@ -284,7 +295,45 @@ function getWinnerLabel(result: ResultSnapshot | null, snapshot: RoomSnapshotMes
   return `${winnerName} Wins`;
 }
 
-function getStatusMessage(phase: RoomPhase, yourSlot: PlayerId | null): string {
+export function getViewerUiState(snapshot: RoomSnapshotMessage, connected: boolean): ViewerUiState {
+  const isWatcher = snapshot.yourSlot === null;
+  const isAiOnlyRoom =
+    snapshot.slots.p1.controller === 'ai' &&
+    snapshot.slots.p2.controller === 'ai';
+  const isLockedViewer =
+    isWatcher &&
+    snapshot.slots.p1.claimed &&
+    snapshot.slots.p2.claimed &&
+    !isAiOnlyRoom &&
+    (
+      snapshot.phase === 'countdown' ||
+      snapshot.phase === 'playing' ||
+      snapshot.phase === 'ready'
+    );
+  const showWatchOverlay =
+    isWatcher &&
+    isAiOnlyRoom &&
+    (snapshot.phase === 'countdown' || snapshot.phase === 'playing');
+
+  return {
+    isWatcher,
+    isAiOnlyRoom,
+    isLockedViewer,
+    showWatchOverlay,
+    showLobbyOverlay:
+      snapshot.phase === 'empty' ||
+      snapshot.phase === 'waiting' ||
+      (snapshot.phase === 'ready' && !isLockedViewer),
+    showPlayerClaims: !isLockedViewer && (snapshot.phase === 'empty' || snapshot.phase === 'waiting'),
+    canClaim: connected && isWatcher && (snapshot.phase === 'empty' || snapshot.phase === 'waiting'),
+    canStart: connected && snapshot.phase === 'ready' && (!isWatcher || isAiOnlyRoom),
+  };
+}
+
+export function getStatusMessage(snapshot: RoomSnapshotMessage): string {
+  const { phase, yourSlot } = snapshot;
+  const { isAiOnlyRoom } = getViewerUiState(snapshot, true);
+
   if (phase === 'empty') {
     return 'Claim a slot to open the room.';
   }
@@ -292,13 +341,22 @@ function getStatusMessage(phase: RoomPhase, yourSlot: PlayerId | null): string {
     return yourSlot ? 'Waiting for the other side to be filled.' : 'One side is claimed. Join the other side or add AI.';
   }
   if (phase === 'ready') {
-    return yourSlot ? 'Both sides are ready. Either human can start.' : 'Room is full and ready.';
+    if (yourSlot) {
+      return 'Both sides are ready. Either human can start.';
+    }
+    return isAiOnlyRoom ? 'AI match ready. Start to watch.' : 'Room is full and ready.';
   }
   if (phase === 'countdown') {
-    return yourSlot ? 'Countdown live. Pre-turns are accepted now.' : 'Match starting.';
+    if (yourSlot) {
+      return 'Countdown live. Pre-turns are accepted now.';
+    }
+    return isAiOnlyRoom ? 'Watching AI match. Countdown live.' : 'Match starting.';
   }
   if (phase === 'playing') {
-    return yourSlot ? 'Authoritative online match in progress.' : 'Match in progress.';
+    if (yourSlot) {
+      return 'Authoritative online match in progress.';
+    }
+    return isAiOnlyRoom ? 'Watching AI match.' : 'Match in progress.';
   }
 
   return 'Result locked in. Room resets automatically.';
@@ -541,7 +599,7 @@ export default function App() {
             inputSeqRef.current = 0;
           }
           setSnapshot(incoming);
-          setMessage(getStatusMessage(incoming.phase, incoming.yourSlot));
+          setMessage(getStatusMessage(incoming));
           return;
         }
 
@@ -689,18 +747,8 @@ export default function App() {
     return `${Math.max(1, Math.ceil(snapshot.game.countdownMs / 800))}`;
   }, [snapshot]);
 
-  const isLockedViewer =
-    !snapshot.yourSlot &&
-    (snapshot.phase === 'countdown' || snapshot.phase === 'playing' || snapshot.phase === 'ready') &&
-    snapshot.slots.p1.claimed &&
-    snapshot.slots.p2.claimed;
-  const showLobbyOverlay =
-    snapshot.phase === 'empty' ||
-    snapshot.phase === 'waiting' ||
-    (snapshot.phase === 'ready' && !isLockedViewer);
-  const showPlayerClaims = !isLockedViewer;
-  const canClaim = connected && snapshot.yourSlot === null;
-  const canStart = connected && snapshot.phase === 'ready';
+  const viewerUi = getViewerUiState(snapshot, connected);
+  const { isLockedViewer, showWatchOverlay, showLobbyOverlay, showPlayerClaims, canClaim, canStart } = viewerUi;
   const canManageAi = connected && (snapshot.phase === 'empty' || snapshot.phase === 'waiting' || snapshot.phase === 'ready');
   const heads = snapshot.game
     ? {
@@ -858,6 +906,14 @@ export default function App() {
           <div className="overlay slim" data-testid="viewer-overlay">
             <p className="eyebrow">Room Locked</p>
             <h2>{snapshot.phase === 'finished' ? 'Match Resetting' : 'Room Full'}</h2>
+            <p className="status-copy">{message}</p>
+          </div>
+        ) : null}
+
+        {showWatchOverlay ? (
+          <div className="overlay slim" data-testid="watch-overlay">
+            <p className="eyebrow">Watch Mode</p>
+            <h2>{snapshot.phase === 'countdown' ? 'AI Match Starting' : 'Watching AI Match'}</h2>
             <p className="status-copy">{message}</p>
           </div>
         ) : null}
