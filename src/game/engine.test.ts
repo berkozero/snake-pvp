@@ -101,9 +101,9 @@ describe('engine', () => {
     expect(deadState.players.p1.alive).toBe(false);
     expect(deadState.players.p1.score).toBe(4);
     expect(deadState.players.p1.respawnPreview).not.toBeNull();
-    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs)).toBe(3);
-    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 1001)).toBe(2);
-    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 2001)).toBe(1);
+    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs)).toBe(2);
+    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 1001)).toBe(1);
+    expect(getRespawnCountdown(deadState.players.p1, deadState.clockMs + 2001)).toBeNull();
 
     const respawnedState = tick(deadState, RESPAWN_DELAY_MS, 1000 + RESPAWN_DELAY_MS, { random: createDeterministicRandom([0]) }).state;
     expect(respawnedState.players.p1.alive).toBe(true);
