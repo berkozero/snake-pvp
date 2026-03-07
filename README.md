@@ -59,9 +59,9 @@ bun run ai:gate
 Set deploy roots by platform:
 
 - Vercel root directory: `apps/web`
-- Railway root directory: repo root (`/`) or unset
+- Railway root directory: `apps/server`
 
-Railway should install and start from the repo root so Bun workspaces and `packages/game-core` are available. The expected start command is `bun run server`.
+Railway deploys the standalone server package only. The server vendors the runtime-safe `@snake/game-core` package under `apps/server/vendor/game-core`, so Railway does not need the rest of the monorepo and does not ship `tools/ai`.
 
 Production frontend environment:
 
