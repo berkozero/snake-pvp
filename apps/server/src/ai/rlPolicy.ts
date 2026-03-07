@@ -1,8 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { createSimulatorSnapshot, type PlayerId, type RoundState } from '@snake/game-core';
-import { EnvActionOrder, createObservationVector, getLegalActionMask, observationVectorLength, observationVersion, type EnvAction } from '@snake/game-core/ml';
+import {
+  createObservationVector,
+  createSimulatorSnapshot,
+  EnvActionOrder,
+  getLegalActionMask,
+  observationVectorLength,
+  observationVersion,
+  type EnvAction,
+  type PlayerId,
+  type RoundState,
+} from '@snake/game-core';
 
 type Activation = 'relu' | 'identity';
 

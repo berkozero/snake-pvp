@@ -12,11 +12,11 @@ import {
   pickFoodCell,
   startCountdown,
   tick,
+  EnvActionOrder,
   type Direction,
   type PlayerId,
   type RoundState,
 } from '@snake/game-core';
-import { EnvActionOrder } from '@snake/game-core/ml';
 import {
   PROTOCOL_VERSION,
   ROOM_ID,
