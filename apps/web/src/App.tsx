@@ -911,7 +911,7 @@ export default function App() {
         ) : null}
 
         {showWatchOverlay ? (
-          <div className="overlay slim" data-testid="watch-overlay">
+          <div className="overlay slim watch-overlay" data-testid="watch-overlay">
             <p className="eyebrow">Watch Mode</p>
             <h2>{snapshot.phase === 'countdown' ? 'AI Match Starting' : 'Watching AI Match'}</h2>
             <p className="status-copy">{message}</p>

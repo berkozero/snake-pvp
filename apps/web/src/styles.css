@@ -602,6 +602,31 @@ button.secondary {
   gap: 10px;
 }
 
+.watch-overlay {
+  inset: 18px auto auto 18px;
+  place-content: start;
+  justify-items: start;
+  gap: 6px;
+  min-height: auto;
+  max-width: min(360px, calc(100% - 36px));
+  padding: 12px 14px;
+  text-align: left;
+  background:
+    linear-gradient(180deg, rgba(4, 4, 6, 0.72), rgba(8, 8, 10, 0.82)),
+    rgba(5, 5, 7, 0.76);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.watch-overlay h2 {
+  font-size: clamp(1rem, 2vw, 1.35rem);
+}
+
+.watch-overlay .eyebrow,
+.watch-overlay .status-copy {
+  max-width: none;
+}
+
 .score-grid {
   justify-content: center;
 }
@@ -960,6 +985,19 @@ button.secondary {
     font-size: clamp(1.5rem, 8vw, 2.3rem);
   }
 
+  .watch-overlay {
+    inset: 6px 6px auto 6px;
+    max-width: none;
+    padding: 10px 12px;
+    background:
+      linear-gradient(180deg, rgba(4, 4, 6, 0.6), rgba(8, 8, 10, 0.76)),
+      rgba(5, 5, 7, 0.72);
+  }
+
+  .watch-overlay h2 {
+    font-size: 1rem;
+  }
+
   .respawn-preview-marker {
     width: calc(100% / 36 * 0.72);
     height: calc(100% / 24 * 0.72);
@@ -1100,5 +1138,10 @@ button.secondary {
     min-height: auto;
     max-width: 56%;
     margin-left: auto;
+  }
+
+  .watch-overlay {
+    max-width: min(72%, 320px);
+    margin-left: 0;
   }
 }
