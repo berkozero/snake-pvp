@@ -37,7 +37,7 @@ export function readServerEnv(): ServerEnv {
     matchDurationMs: readNumber('MATCH_DURATION_MS', 90_000),
     livenessTimeoutMs: readNumber('LIVENESS_TIMEOUT_MS', 5_000),
     disconnectGraceMs: readNumber('DISCONNECT_GRACE_MS', 3_000),
-    finishDwellMs: readNumber('FINISH_DWELL_MS', 4_000),
+    finishDwellMs: readNumber('FINISH_DWELL_MS', 6_000),
     rateLimitPerSecond: readNumber('RATE_LIMIT_PER_SECOND', 40),
   };
 }

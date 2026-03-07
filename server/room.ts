@@ -168,7 +168,7 @@ export class MainRoom {
     this.matchDurationMs = options.matchDurationMs ?? MATCH_DURATION_MS;
     this.livenessTimeoutMs = options.livenessTimeoutMs ?? 5_000;
     this.disconnectGraceMs = options.disconnectGraceMs ?? 3_000;
-    this.finishDwellMs = options.finishDwellMs ?? 4_000;
+    this.finishDwellMs = options.finishDwellMs ?? 6_000;
     this.rateLimitPerSecond = options.rateLimitPerSecond ?? 40;
     this.emitToSession = options.emitToSession ?? (() => {});
     this.log = options.log ?? (() => {});

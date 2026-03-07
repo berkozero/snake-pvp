@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ServerMessage } from '../src/net/protocol';
 import { DEFAULT_MATCH_DURATION_MS, createRoomForTests } from './room';
-
 const AUTHORITATIVE_TICK_MS = 50;
 
-function createHarness() {
+function createHarness(options: Parameters<typeof createRoomForTests>[0] = {}) {
   let now = 1_000;
   const sent = new Map<string, ServerMessage[]>();
   const logs: Array<{ event: string; context: Record<string, unknown> | undefined }> = [];
   const room = createRoomForTests({
+    ...options,
     now: () => now,
     emitToSession: (socketId, message) => {
       sent.set(socketId, [...(sent.get(socketId) ?? []), message]);
@@ -198,7 +198,7 @@ describe('MainRoom', () => {
     expect(room.phase).toBe('finished');
     expect(room.roundId).toBe(roundId);
 
-    advance(4_100);
+    advance(6_100);
     expect(room.phase).toBe('empty');
     expect(room.roundId).toBeNull();
     expect(room.tickSeq).toBe(0);
@@ -247,7 +247,7 @@ describe('MainRoom', () => {
   });
 
   it('rejects stale round messages from an old round', () => {
-    const { room, connect, send, latest, advance, tickOnce } = createHarness();
+    const { room, connect, send, sent, advance, tickOnce } = createHarness({ livenessTimeoutMs: 10_000 });
 
     connect('s1');
     connect('s2');
@@ -262,13 +262,18 @@ describe('MainRoom', () => {
     }
     tickOnce();
     tickOnce();
-    advance(4_100);
+    advance(6_100);
+
+    send('s1', { type: 'join_slot', requestId: 'd', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'e', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'f' });
+    expect(room.roundId).not.toBe(oldRoundId);
 
     connect('s3');
-    send('s3', { type: 'join_slot', requestId: 'd', slot: 'p1', name: 'Charlie' });
+    const before = sent.get('s1')?.length ?? 0;
     send('s1', { type: 'start_match', requestId: 'e', roundId: oldRoundId });
 
-    const rejected = latest('s1');
+    const rejected = (sent.get('s1') ?? [])[before];
     expect(rejected?.type).toBe('action_rejected');
     if (rejected?.type === 'action_rejected') {
       expect(rejected.reason).toBe('invalid_phase');
@@ -458,7 +463,7 @@ describe('MainRoom', () => {
     advance(3_100);
     expect(room.phase).toBe('finished');
 
-    advance(4_100);
+    advance(6_100);
     expect(room.phase).toBe('empty');
     const disconnected = [...room.sessions.values()].filter((session) => !session.connected);
     expect(disconnected).toHaveLength(0);
