@@ -836,43 +836,103 @@ export default function App() {
         </div>
         <section className="how-to-play how-to-play-panel" aria-label="How to play">
           <h3>How to Play</h3>
-          <ul className="how-to-play-list">
-            <li>
-              <strong>[+]</strong>
-              <span>Claim a side</span>
-              <span>Choose P1 or P2, enter a handle, and lock in your slot.</span>
-            </li>
-            <li>
-              <strong>[+]</strong>
-              <span>Start the round</span>
-              <span>When both players connect, press Enter or use the start button.</span>
-            </li>
-            <li>
-              <strong>[+]</strong>
-              <span>Move with arrows</span>
-              <span>Each player uses the arrow keys on their own browser window.</span>
-            </li>
-            <li>
-              <strong>[+]</strong>
-              <span>Score and grow</span>
-              <span>Collect food to gain points and add length before time runs out.</span>
-            </li>
-            <li>
-              <strong>[+]</strong>
-              <span>Cut legally</span>
-              <span>Hit enemy body segments only. Head and neck do not count as valid cuts.</span>
-            </li>
-            <li>
-              <strong>[+]</strong>
-              <span>Stay alive</span>
-              <span>Deaths come from walls, your own body, or losing bad collisions.</span>
-            </li>
-            <li>
-              <strong>[+]</strong>
-              <span>Win the tiebreak</span>
-              <span>Final result is score first, then current length if score is tied.</span>
-            </li>
-          </ul>
+          <div className="how-to-play-groups">
+            <section className="how-to-play-group" aria-label="Get in">
+              <p className="how-to-play-group-label">Get In</p>
+              <ul className="how-to-play-list">
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Claim a Side</span>
+                    <span className="how-to-play-item-description">Choose P1 or P2, enter your name, and lock in your slot.</span>
+                  </div>
+                </li>
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Start the Match</span>
+                    <span className="how-to-play-item-description">When both players are ready, press Enter or use the Start button.</span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <section className="how-to-play-group" aria-label="Grow">
+              <p className="how-to-play-group-label">Grow</p>
+              <ul className="how-to-play-list">
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Eat to Grow</span>
+                    <span className="how-to-play-item-description">Collect food to score points and grow longer before the 90-second match ends.</span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <section className="how-to-play-group" aria-label="Combat">
+              <p className="how-to-play-group-label">Combat</p>
+              <ul className="how-to-play-list">
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Cut the Body</span>
+                    <span className="how-to-play-item-description">Hit the enemy body to cut it shorter.</span>
+                  </div>
+                </li>
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Hit the Neck</span>
+                    <span className="how-to-play-item-description">Hit the enemy neck to kill that snake.</span>
+                  </div>
+                </li>
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Head-to-Head</span>
+                    <span className="how-to-play-item-description">In a head-to-head, the longer snake survives. If both are the same length, both snakes die.</span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <section className="how-to-play-group" aria-label="Respawn">
+              <p className="how-to-play-group-label">Respawn</p>
+              <ul className="how-to-play-list">
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Hit a Wall</span>
+                    <span className="how-to-play-item-description">Running into a wall kills your snake.</span>
+                  </div>
+                </li>
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Hit Yourself</span>
+                    <span className="how-to-play-item-description">Running into your own body kills your snake.</span>
+                  </div>
+                </li>
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Come Back In</span>
+                    <span className="how-to-play-item-description">After 2 seconds, your snake respawns and keeps playing.</span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <section className="how-to-play-group" aria-label="Winning">
+              <p className="how-to-play-group-label">Winning</p>
+              <ul className="how-to-play-list">
+                <li>
+                  <strong className="how-to-play-marker">[+]</strong>
+                  <div className="how-to-play-copy">
+                    <span className="how-to-play-item-title">Win the Match</span>
+                    <span className="how-to-play-item-description">The highest score wins. If the score is tied, the longer snake wins. If both are still tied, the match ends in a draw.</span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+          </div>
         </section>
       </section>
 

@@ -32,10 +32,10 @@ describe('engine', () => {
     expect(formatTime(0)).toBe('0');
   });
 
-  it('awards both players when they reach food on the same tick', () => {
+  it('applies head-on rules on contested food while still awarding both players the point', () => {
     const state = makePlayingState({
       players: {
-        p1: { segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }, { x: 1, y: 5 }], direction: 'right', pendingDirection: 'right' },
+        p1: { segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }, { x: 1, y: 5 }, { x: 0, y: 5 }], direction: 'right', pendingDirection: 'right' },
         p2: { segments: [{ x: 6, y: 5 }, { x: 7, y: 5 }, { x: 8, y: 5 }, { x: 9, y: 5 }], direction: 'left', pendingDirection: 'left' },
       },
       food: { x: 5, y: 5 },
@@ -45,8 +45,8 @@ describe('engine', () => {
 
     expect(result.players.p1.score).toBe(1);
     expect(result.players.p2.score).toBe(1);
-    expect(result.players.p1.segments).toHaveLength(5);
-    expect(result.players.p2.segments).toHaveLength(5);
+    expect(result.players.p1.alive).toBe(true);
+    expect(result.players.p2.alive).toBe(false);
   });
 
   it('advances timers on heartbeat ticks without moving snakes', () => {
@@ -273,6 +273,75 @@ describe('engine', () => {
     expect(result.players.p2.segments.length).toBe(4);
   });
 
+  it('kills the defender when the attacker lands on the neck, regardless of size', () => {
+    const state = makePlayingState({
+      players: {
+        p1: {
+          segments: [{ x: 7, y: 8 }, { x: 6, y: 8 }, { x: 5, y: 8 }, { x: 4, y: 8 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+        p2: {
+          segments: [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }, { x: 5, y: 8 }, { x: 4, y: 8 }, { x: 3, y: 8 }],
+          direction: 'down',
+          pendingDirection: 'down',
+        },
+      },
+      food: { x: 20, y: 20 },
+    });
+
+    const result = tick(state, state.tickMs, 1000).state;
+
+    expect(result.players.p1.alive).toBe(true);
+    expect(result.players.p2.alive).toBe(false);
+  });
+
+  it('treats the opponent old head cell as a neck kill after movement', () => {
+    const state = makePlayingState({
+      players: {
+        p1: {
+          segments: [{ x: 4, y: 5 }, { x: 4, y: 6 }, { x: 4, y: 7 }, { x: 4, y: 8 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+        p2: {
+          segments: [{ x: 5, y: 5 }, { x: 5, y: 6 }, { x: 5, y: 7 }, { x: 5, y: 8 }],
+          direction: 'up',
+          pendingDirection: 'up',
+        },
+      },
+      food: { x: 20, y: 20 },
+    });
+
+    const result = tick(state, state.tickMs, 1000).state;
+
+    expect(result.players.p1.alive).toBe(true);
+    expect(result.players.p2.alive).toBe(false);
+  });
+
+  it('kills both snakes when they simultaneously move into each others neck cells', () => {
+    const state = makePlayingState({
+      players: {
+        p1: {
+          segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }, { x: 1, y: 5 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+        p2: {
+          segments: [{ x: 5, y: 5 }, { x: 6, y: 5 }, { x: 7, y: 5 }, { x: 8, y: 5 }],
+          direction: 'left',
+          pendingDirection: 'left',
+        },
+      },
+      food: { x: 20, y: 20 },
+    });
+
+    const result = tick(state, state.tickMs, 1000).state;
+
+    expect(result.players.p1.alive).toBe(false);
+    expect(result.players.p2.alive).toBe(false);
+  });
+
   it('kills the shorter snake in a head-on collision', () => {
     const state = makePlayingState({
       players: {
@@ -293,6 +362,29 @@ describe('engine', () => {
     const result = tick(state, state.tickMs, 1000).state;
 
     expect(result.players.p1.alive).toBe(true);
+    expect(result.players.p2.alive).toBe(false);
+  });
+
+  it('kills both snakes in an equal-length head-on collision', () => {
+    const state = makePlayingState({
+      players: {
+        p1: {
+          segments: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }, { x: 1, y: 4 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+        p2: {
+          segments: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }],
+          direction: 'left',
+          pendingDirection: 'left',
+        },
+      },
+      food: { x: 20, y: 20 },
+    });
+
+    const result = tick(state, state.tickMs, 1000).state;
+
+    expect(result.players.p1.alive).toBe(false);
     expect(result.players.p2.alive).toBe(false);
   });
 

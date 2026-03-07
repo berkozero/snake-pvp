@@ -400,10 +400,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
     }
   }
 
-  const cutExemptions = new Map<PlayerId, Set<string>>();
-  for (const id of PLAYER_IDS) {
-    cutExemptions.set(id, new Set<string>());
-  }
+  const neckDeaths = new Set<PlayerId>();
 
   for (const attackerId of movingAliveIds) {
     const defenderId = attackerId === 'p1' ? 'p2' : 'p1';
@@ -413,9 +410,12 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       continue;
     }
 
-    const hitIndex = defender.segments.findIndex((segment, index) => index >= 2 && cellsEqual(segment, attackerHead));
+    const hitIndex = defender.segments.findIndex((segment) => cellsEqual(segment, attackerHead));
+    if (hitIndex === 1) {
+      neckDeaths.add(defenderId);
+      continue;
+    }
     if (hitIndex >= 2) {
-      cutExemptions.get(attackerId)!.add(cellKey(attackerHead));
       playersAfterMove[defenderId] = {
         ...defender,
         segments: defender.segments.slice(0, hitIndex + 1),
@@ -424,7 +424,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
     }
   }
 
-  const deaths = new Set<PlayerId>();
+  const deaths = new Set<PlayerId>(neckDeaths);
 
   for (const id of aliveIds) {
     const player = playersAfterMove[id];
@@ -438,44 +438,23 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       deaths.add(id);
       continue;
     }
-
-    const otherId = id === 'p1' ? 'p2' : 'p1';
-    const other = playersAfterMove[otherId];
-    const exempt = cutExemptions.get(id)!;
-    const sharedFoodHead =
-      moved[id]?.ateFood &&
-      moved[otherId]?.ateFood &&
-      cellsEqual(head, workingState.food) &&
-      cellsEqual(other.segments[0], head);
-    const hitEnemy = other.segments.some(
-      (segment, index) =>
-        cellsEqual(segment, head) &&
-        !exempt.has(cellKey(segment)) &&
-        !(sharedFoodHead && index === 0),
-    );
-    if (hitEnemy) {
-      deaths.add(id);
-    }
   }
 
   if (playersAfterMove.p1.alive && playersAfterMove.p2.alive) {
     const p1Head = playersAfterMove.p1.segments[0];
     const p2Head = playersAfterMove.p2.segments[0];
     if (cellsEqual(p1Head, p2Head)) {
-      const contestedFood = moved.p1?.ateFood && moved.p2?.ateFood && cellsEqual(p1Head, workingState.food);
-      if (!contestedFood) {
-        const p1Length = playersAfterMove.p1.segments.length;
-        const p2Length = playersAfterMove.p2.segments.length;
-        if (p1Length === p2Length) {
-          deaths.add('p1');
-          deaths.add('p2');
-        } else if (p1Length > p2Length) {
-          deaths.add('p2');
-          deaths.delete('p1');
-        } else {
-          deaths.add('p1');
-          deaths.delete('p2');
-        }
+      const p1Length = playersAfterMove.p1.segments.length;
+      const p2Length = playersAfterMove.p2.segments.length;
+      if (p1Length === p2Length) {
+        deaths.add('p1');
+        deaths.add('p2');
+      } else if (p1Length > p2Length) {
+        deaths.add('p2');
+        deaths.delete('p1');
+      } else {
+        deaths.add('p1');
+        deaths.delete('p2');
       }
     }
   }
