@@ -36,6 +36,23 @@ type RenderSegment = {
   y: number;
 };
 
+type PlayerSlotCardProps = {
+  slot: PlayerId;
+  slotName: string;
+  slotStatus: string;
+  textColor: string;
+  statusColor: string;
+  claimed: boolean;
+  connected: boolean;
+  inputValue: string;
+  canClaim: boolean;
+  showPlayerClaims: boolean;
+  isOwner: boolean;
+  onInputChange: (value: string) => void;
+  onClaim: () => void;
+  onLeave: () => void;
+};
+
 const CANVAS_WIDTH = BOARD_WIDTH * CELL_SIZE;
 const CANVAS_HEIGHT = BOARD_HEIGHT * CELL_SIZE;
 const RESUME_TOKEN_KEY = 'snake-pvp-resume-token';
@@ -323,6 +340,62 @@ function getPreviewRotation(direction: GameSnapshot['players'][PlayerId]['direct
     return 180;
   }
   return 270;
+}
+
+function PlayerSlotCard({
+  slot,
+  slotName,
+  slotStatus,
+  textColor,
+  statusColor,
+  claimed,
+  connected,
+  inputValue,
+  canClaim,
+  showPlayerClaims,
+  isOwner,
+  onInputChange,
+  onClaim,
+  onLeave,
+}: PlayerSlotCardProps) {
+  return (
+    <article className="player-slot-card" data-testid={`slot-${slot}`}>
+      <div className="slot-row">
+        <strong style={{ color: textColor }}>{slotName}</strong>
+        <span style={{ color: statusColor }}>{slotStatus}</span>
+        {!claimed ? (
+          <input
+            className="slot-input"
+            data-testid={`name-input-${slot}`}
+            value={inputValue}
+            maxLength={16}
+            onChange={(event) => onInputChange(event.target.value)}
+            placeholder="Enter handle"
+            disabled={!canClaim || !showPlayerClaims}
+          />
+        ) : null}
+      </div>
+      {showPlayerClaims && !isOwner ? (
+        <button
+          data-testid={`claim-${slot}`}
+          onClick={onClaim}
+          disabled={!canClaim || (claimed && connected)}
+        >
+          {`Claim ${slot.toUpperCase()}`}
+        </button>
+      ) : null}
+      {isOwner ? (
+        <button
+          data-testid="leave-slot"
+          className="secondary"
+          onClick={onLeave}
+          disabled={!connected}
+        >
+          Leave Slot
+        </button>
+      ) : null}
+    </article>
+  );
 }
 
 export default function App() {
@@ -752,87 +825,46 @@ export default function App() {
           <strong>Claim your side</strong>
         </div>
         <div className="players-grid">
-          <article className="player-slot-card" data-testid="slot-p1">
-            <div className="slot-row">
-              <strong style={{ color: p1LobbyColors.text }}>{getPlayerName(snapshot, 'p1')}</strong>
-              <span style={{ color: p1LobbyColors.status }}>{getSlotStatus(snapshot, 'p1')}</span>
-              {!snapshot.slots.p1.claimed ? (
-                <input
-                  className="slot-input"
-                  data-testid="name-input-p1"
-                  value={p1Name}
-                  maxLength={16}
-                  onChange={(event) => setP1Name(event.target.value)}
-                  placeholder="Enter handle"
-                  disabled={!canClaim || !showPlayerClaims}
-                />
-              ) : null}
-            </div>
-            {showPlayerClaims && snapshot.yourSlot !== 'p1' ? (
-              <button
-                data-testid="claim-p1"
-                onClick={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p1', name: p1Name })}
-                disabled={!canClaim || (snapshot.slots.p1.claimed && snapshot.slots.p1.connected)}
-              >
-                Claim P1
-              </button>
-            ) : null}
-            {snapshot.yourSlot === 'p1' ? (
-              <button
-                data-testid="leave-slot"
-                className="secondary"
-                onClick={() => {
-                  window.localStorage.removeItem(RESUME_TOKEN_KEY);
-                  resumeTokenRef.current = null;
-                  sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
-                }}
-                disabled={!connected}
-              >
-                Leave Slot
-              </button>
-            ) : null}
-          </article>
-          <article className="player-slot-card" data-testid="slot-p2">
-            <div className="slot-row">
-              <strong style={{ color: p2LobbyColors.text }}>{getPlayerName(snapshot, 'p2')}</strong>
-              <span style={{ color: p2LobbyColors.status }}>{getSlotStatus(snapshot, 'p2')}</span>
-              {!snapshot.slots.p2.claimed ? (
-                <input
-                  className="slot-input"
-                  data-testid="name-input-p2"
-                  value={p2Name}
-                  maxLength={16}
-                  onChange={(event) => setP2Name(event.target.value)}
-                  placeholder="Enter handle"
-                  disabled={!canClaim || !showPlayerClaims}
-                />
-              ) : null}
-            </div>
-            {showPlayerClaims && snapshot.yourSlot !== 'p2' ? (
-              <button
-                data-testid="claim-p2"
-                className="secondary"
-                onClick={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p2', name: p2Name })}
-                disabled={!canClaim || (snapshot.slots.p2.claimed && snapshot.slots.p2.connected)}
-              >
-                Claim P2
-              </button>
-            ) : null}
-            {snapshot.yourSlot === 'p2' ? (
-              <button
-                data-testid="leave-slot"
-                className="secondary"
-                onClick={() => {
-                  window.localStorage.removeItem(RESUME_TOKEN_KEY);
-                  resumeTokenRef.current = null;
-                  sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
-                }}
-                disabled={!connected}
-              >
-                Leave Slot
-              </button>
-            ) : null}
-          </article>
+          <PlayerSlotCard
+            slot="p1"
+            slotName={getPlayerName(snapshot, 'p1')}
+            slotStatus={getSlotStatus(snapshot, 'p1')}
+            textColor={p1LobbyColors.text}
+            statusColor={p1LobbyColors.status}
+            claimed={snapshot.slots.p1.claimed}
+            connected={snapshot.slots.p1.connected}
+            inputValue={p1Name}
+            canClaim={canClaim}
+            showPlayerClaims={showPlayerClaims}
+            isOwner={snapshot.yourSlot === 'p1'}
+            onInputChange={setP1Name}
+            onClaim={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p1', name: p1Name })}
+            onLeave={() => {
+              window.localStorage.removeItem(RESUME_TOKEN_KEY);
+              resumeTokenRef.current = null;
+              sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
+            }}
+          />
+          <PlayerSlotCard
+            slot="p2"
+            slotName={getPlayerName(snapshot, 'p2')}
+            slotStatus={getSlotStatus(snapshot, 'p2')}
+            textColor={p2LobbyColors.text}
+            statusColor={p2LobbyColors.status}
+            claimed={snapshot.slots.p2.claimed}
+            connected={snapshot.slots.p2.connected}
+            inputValue={p2Name}
+            canClaim={canClaim}
+            showPlayerClaims={showPlayerClaims}
+            isOwner={snapshot.yourSlot === 'p2'}
+            onInputChange={setP2Name}
+            onClaim={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p2', name: p2Name })}
+            onLeave={() => {
+              window.localStorage.removeItem(RESUME_TOKEN_KEY);
+              resumeTokenRef.current = null;
+              sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
+            }}
+          />
         </div>
         <section className="how-to-play how-to-play-panel" aria-label="How to play">
           <h3>How to Play</h3>
