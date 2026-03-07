@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["ES2022"],
+    "types": ["node", "bun"],
+    "paths": {
+      "@snake/game-core": ["../../packages/game-core/src/index.ts"],
+      "@snake/game-core/*": ["../../packages/game-core/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

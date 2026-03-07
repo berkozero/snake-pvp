@@ -11,13 +11,13 @@ export default defineConfig({
   webServer: [
     {
       command:
-        'PORT=3001 COUNTDOWN_MS=500 MATCH_DURATION_MS=5000 FINISH_DWELL_MS=700 DISCONNECT_GRACE_MS=1200 bun run server',
+        'PORT=3001 COUNTDOWN_MS=500 MATCH_DURATION_MS=5000 FINISH_DWELL_MS=700 DISCONNECT_GRACE_MS=1200 bun run --cwd apps/server start',
       url: 'http://127.0.0.1:3001/health',
       reuseExistingServer: true,
       timeout: 30_000,
     },
     {
-      command: 'VITE_GAME_SERVER_URL=ws://127.0.0.1:3001/ws bun run dev -- --host 127.0.0.1 --port 4173',
+      command: 'VITE_GAME_SERVER_URL=ws://127.0.0.1:3001/ws bun run --cwd apps/web dev -- --host 127.0.0.1 --port 4173',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: true,
       timeout: 30_000,

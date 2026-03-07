@@ -1,177 +1,84 @@
 # Snake PVP
 
-An online 1v1 Snake game with an authoritative Bun WebSocket server and a thin React/Vite client.
+Repo layout is now split by deploy boundary:
 
-Two players claim named slots, join the same room, chase the same food, grow longer, cut each other's body, and fight for the highest score before the timer ends.
+- `apps/web`: Vercel-only React/Vite frontend
+- `apps/server`: Railway-only Bun WebSocket server and checked-in PPO inference bundle
+- `packages/game-core`: runtime-safe shared gameplay core, protocol, and deterministic simulator
+- `tools/ai`: local-only training workspace with `scripts/`, `configs/`, `python/`, and ignored `.local/` outputs
 
-## Gameplay
+Only `@snake/game-core` is allowed to cross between deploy apps.
 
-- Classic grid-based movement inspired by old-school Nokia Snake
-- 2 online players in one shared room
-- Authoritative 50ms server simulation
-- 3-minute matches by default with live score tracking
-- Eating food gives `+1` score and grows your snake
-- Hitting your own body or a wall kills you
-- Biting an enemy body segment cuts off the rest of their tail
-- Longer snake wins head-on collisions; equal length knocks both out
-- If score is tied at time up, current snake length is the tiebreaker
+## Local Development
 
-## Controls
-
-- Movement on every client: arrow keys
-- Start when room is ready: `Enter`
-
-## Visual Style
-
-- Black arena and background
-- Distinct snake colors for each player
-- Bright food dot for easy tracking
-- Retro arcade / Nokia-inspired presentation with modern UI polish
-
-## Run Locally
+Install once from the repo root:
 
 ```bash
 bun install
 cp .env.example .env
-PORT=3001 bun run server
-VITE_GAME_SERVER_URL=ws://127.0.0.1:3001/ws bun run dev
 ```
 
-Or in two terminals:
+Run the standard local ports in two terminals:
 
 ```bash
 bun run dev:server
-bun run dev
+bun run dev:web
 ```
 
-The frontend defaults to `ws://127.0.0.1:3001/ws` if `VITE_GAME_SERVER_URL` is not set.
+- Server: `http://127.0.0.1:3001/health`
+- Frontend: `http://127.0.0.1:4173`
+- Default frontend socket: `ws://127.0.0.1:3001/ws`
 
-Health check:
+To play against the AI locally, claim one slot, enable `Add AI` on the other slot, then start the match.
 
-```bash
-curl http://127.0.0.1:3001/health
-```
-
-## Scripts
+## Workspace Commands
 
 ```bash
-bun run dev
 bun run dev:server
+bun run dev:web
 bun run server
+bun run build
 bun run test
 bun run e2e
-bun run build
-bun run test:all
+bun run check:boundaries
+bun run audit:web-dist
 ```
 
-## Automated Testing
-
-This project includes:
-
-- `Vitest` for deterministic gameplay engine tests
-- `Playwright` for headless browser flow testing
-- `Vite build` for production build verification
-
-## Environment
-
-- Copy `.env.example` to `.env` for local development.
-- Frontend: `VITE_GAME_SERVER_URL`
-- Server: `PORT`, `HOST`
-- Optional server tuning: `COUNTDOWN_MS`, `MATCH_DURATION_MS`, `SERVER_TICK_MS`, `DISCONNECT_GRACE_MS`, `FINISH_DWELL_MS`, `LIVENESS_TIMEOUT_MS`, `RATE_LIMIT_PER_SECOND`
-
-## Deploy
-
-Use Railway for the Bun WebSocket match server and Vercel for the static Vite frontend.
-
-### Railway
-
-This repo includes [`railway.json`](/Users/berkozer/Documents/snake-pvp/railway.json), so Railway can use the correct start command and health check automatically.
-
-Expected runtime:
-
-- Start command: `bun run server`
-- Health check: `/health`
-- Host: `0.0.0.0`
-- Port: Railway-provided `PORT`
-
-Recommended Railway variables:
+AI and training commands now live under `tools/ai` and are still exposed through the root:
 
 ```bash
-HOST=0.0.0.0
+bun run ai:dataset
+bun run ai:train
+bun run ai:eval
+bun run ai:export-policy
+bun run ai:gate
 ```
 
-After deploy, note the public server URL, for example:
+## Deploy Roots
 
-```text
-https://snake-pvp-server.up.railway.app
-```
+Set deploy roots to the app directories directly:
 
-Your frontend should point at:
+- Vercel root directory: `apps/web`
+- Railway root directory: `apps/server`
 
-```text
-wss://snake-pvp-server.up.railway.app/ws
-```
-
-Quick verification:
+Production frontend environment:
 
 ```bash
-curl https://snake-pvp-server.up.railway.app/health
+VITE_GAME_SERVER_URL=wss://your-railway-domain/ws
 ```
 
-### Vercel
+The checked-in Railway-safe PPO bundle lives at [apps/server/src/ai/policies/ppo-ablation-a.best-policy.json](/Users/berkozer/Documents/snake-pvp/worktrees/simulator-extraction/apps/server/src/ai/policies/ppo-ablation-a.best-policy.json).
 
-This repo includes [`vercel.json`](/Users/berkozer/Documents/snake-pvp/vercel.json), which pins the Bun install/build commands and serves the Vite SPA from `dist`.
+## Boundary Enforcement
 
-Required Vercel environment variable:
+The repo now includes:
 
-```bash
-VITE_GAME_SERVER_URL=wss://snake-pvp-server.up.railway.app/ws
-```
+- TS workspace/package boundaries around `apps/*`, `packages/*`, and `tools/*`
+- [scripts/check-boundaries.mjs](/Users/berkozer/Documents/snake-pvp/worktrees/simulator-extraction/scripts/check-boundaries.mjs) to fail forbidden `apps/web -> apps/server|tools/ai` and `apps/server -> tools/ai` imports
+- [scripts/audit-web-dist.mjs](/Users/berkozer/Documents/snake-pvp/worktrees/simulator-extraction/scripts/audit-web-dist.mjs) to fail if forbidden server or AI markers leak into the Vercel bundle
 
-Important:
+## Notes
 
-- Use `wss://` in production, not `ws://`
-- Deploy the Railway backend first so the Vercel build can be configured with the final WebSocket URL
-- Vercel hosts only the frontend for this repo; the Bun server stays on Railway
-
-### CLI Flow
-
-Vercel CLI is installed locally in this environment. Railway CLI can be used via `bunx @railway/cli`.
-
-Typical commands:
-
-```bash
-# frontend
-vercel
-vercel --prod
-
-# backend
-bunx @railway/cli login
-bunx @railway/cli link
-bunx @railway/cli up
-```
-
-If you prefer not to use the CLI, create the Railway service from GitHub in the dashboard, then use the generated Railway URL in the Vercel env var above.
-
-### Post-Deploy Checks
-
-1. Open the Vercel frontend URL.
-2. Confirm the client connects successfully.
-3. Open the Railway `/health` URL.
-4. Join from two separate browser contexts.
-5. Start a match and confirm both clients can control their own snake.
-6. Refresh one client and confirm slot reclaim still works.
-
-## Tech Stack
-
-- React
-- Vite
-- TypeScript
-- Canvas
-- Bun WebSockets
-- Vitest
-- Playwright
-
-## Repo
-
-GitHub: https://github.com/berkozero/snake-pvp
+- `tools/ai/.local/` holds local datasets, checkpoints, eval outputs, replays, and RL runs and is fully gitignored.
+- `packages/game-core` now separates deterministic gameplay runtime from ML-facing helpers under `src/ml/`.
+- `apps/server` keeps only live inference code plus the exported PPO JSON artifact needed at runtime.

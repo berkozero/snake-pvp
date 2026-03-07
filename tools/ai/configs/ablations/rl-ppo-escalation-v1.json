@@ -1,0 +1,38 @@
+{
+  "configVersion": "rl-ppo-v1",
+  "defaultInitCheckpointDir": "tools/ai/.local/artifacts/checkpoints/run-val-v1-large-h32x32-respawn8",
+  "presets": {
+    "train": {
+      "seed": 17,
+      "totalUpdates": 60,
+      "rolloutHorizon": 256,
+      "ppoEpochs": 4,
+      "minibatchSize": 128,
+      "learningRate": 0.0001,
+      "gamma": 0.99,
+      "gaeLambda": 0.95,
+      "clipRange": 0.2,
+      "entropyCoef": 0.01,
+      "valueCoef": 0.5,
+      "maxGradNorm": 0.5,
+      "evalEveryUpdates": 2,
+      "randomSafeSeedSetId": "dev-v1",
+      "heuristicSeedSetId": "val-v1",
+      "evalTimeoutSec": 120,
+      "overallTimeoutSec": 21600,
+      "opponentPool": {
+        "enabled": true,
+        "selfPlayWeight": 0.6,
+        "frozenInitWeight": 0.2,
+        "bestPolicyWeight": 0.2
+      },
+      "hardStateReuse": {
+        "enabled": true,
+        "refreshEveryUpdates": 2,
+        "bucketId": "safety-critical",
+        "bcWeight": 0.1,
+        "maxSamples": 2048
+      }
+    }
+  }
+}
