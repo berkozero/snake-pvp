@@ -8,7 +8,7 @@ Two players claim named slots, join the same room, chase the same food, grow lon
 
 - Classic grid-based movement inspired by old-school Nokia Snake
 - 2 online players in one shared room
-- Authoritative 50ms server simulation
+- Authoritative 100ms server simulation
 - 3-minute matches by default with live score tracking
 - Eating food gives `+1` score and grows your snake
 - Hitting your own body or a wall kills you

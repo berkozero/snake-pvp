@@ -35,7 +35,6 @@ export type GameSnapshot = {
     width: number;
     height: number;
   };
-  tickMs: number;
   countdownMs: number;
   remainingMs: number;
   food: Cell;
@@ -102,7 +101,6 @@ export type RoomSnapshotMessage = EnvelopeBase & {
   serverTime: number;
   phase: RoomPhase;
   tickSeq: number;
-  lastProcessedInputSeq: number | null;
   yourSlot: PlayerId | null;
   resumeToken: string | null;
   slots: Record<PlayerId, SlotSnapshot>;

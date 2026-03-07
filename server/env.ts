@@ -30,7 +30,7 @@ export function readServerEnv(): ServerEnv {
   return {
     host,
     port: readNumber('PORT', 3001),
-    tickMs: readNumber('SERVER_TICK_MS', 50),
+    tickMs: readNumber('SERVER_TICK_MS', 100),
     countdownMs: readNumber('COUNTDOWN_MS', 2_400),
     matchDurationMs: readNumber('MATCH_DURATION_MS', 180_000),
     livenessTimeoutMs: readNumber('LIVENESS_TIMEOUT_MS', 5_000),

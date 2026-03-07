@@ -14,14 +14,6 @@ import {
   type RoomSnapshotMessage,
   type ServerMessage,
 } from './net/protocol';
-import {
-  acknowledgePendingInputs,
-  advancePredictedPlayer,
-  applyPredictedInput,
-  createPredictedPlayerState,
-  type PendingInput,
-  type PredictedPlayerState,
-} from './net/prediction';
 import SnakeWordmark from './SnakeWordmark';
 import { getGameServerUrl } from './config';
 import { getLobbySlotColors, getMatchPlayerColors, getRespawnPreviewColors } from './playerColors';
@@ -56,7 +48,6 @@ const EMPTY_SNAPSHOT: RoomSnapshotMessage = {
   serverTime: 0,
   phase: 'empty',
   tickSeq: 0,
-  lastProcessedInputSeq: null,
   yourSlot: null,
   resumeToken: null,
   slots: {
@@ -164,7 +155,6 @@ function drawArena(
   previousFrame: RenderFrame | null,
   interpolationAlpha: number,
   yourSlot: PlayerId | null,
-  predictedSegments: Partial<Record<PlayerId, RenderSegment[]>>,
 ): void {
   const currentGame = currentFrame?.game ?? null;
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -234,7 +224,7 @@ function drawArena(
   ctx.restore();
 
   (['p1', 'p2'] as PlayerId[]).forEach((playerId) => {
-    const segments = predictedSegments[playerId] ?? getRenderedSegments(previousFrame, currentFrame, playerId, interpolationAlpha);
+    const segments = getRenderedSegments(previousFrame, currentFrame, playerId, interpolationAlpha);
     const colors = getMatchPlayerColors(playerId, yourSlot);
     segments.forEach((segment, index) => {
       const x = segment.x * CELL_SIZE;
@@ -352,10 +342,8 @@ export default function App() {
   const prevFrameRef = useRef<RenderFrame | null>(null);
   const currFrameRef = useRef<RenderFrame>(getRenderFrame(EMPTY_SNAPSHOT));
   const snapshotReceivedAtRef = useRef(performance.now());
-  const snapshotIntervalRef = useRef(50);
+  const snapshotIntervalRef = useRef(100);
   const rafIdRef = useRef<number | null>(null);
-  const pendingInputsRef = useRef<PendingInput[]>([]);
-  const predictedSelfRef = useRef<PredictedPlayerState | null>(null);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -430,7 +418,6 @@ export default function App() {
           currFrameRef.current = getRenderFrame(incoming);
           snapshotIntervalRef.current = Math.max(1, receivedAt - snapshotReceivedAtRef.current);
           snapshotReceivedAtRef.current = receivedAt;
-          pendingInputsRef.current = acknowledgePendingInputs(pendingInputsRef.current, incoming.lastProcessedInputSeq);
           resumeTokenRef.current = incoming.resumeToken;
           if (incoming.resumeToken) {
             window.localStorage.setItem(RESUME_TOKEN_KEY, incoming.resumeToken);
@@ -439,9 +426,7 @@ export default function App() {
           }
           if (incoming.yourSlot === null) {
             inputSeqRef.current = 0;
-            pendingInputsRef.current = [];
           }
-          predictedSelfRef.current = createPredictedPlayerState(incoming, pendingInputsRef.current, receivedAt);
           setSnapshot(incoming);
           setMessage(getStatusMessage(incoming.phase, incoming.yourSlot));
           return;
@@ -534,34 +519,22 @@ export default function App() {
       }
 
       event.preventDefault();
-      const nextInputSeq = inputSeqRef.current + 1;
-      const input: PendingInput = {
-        inputSeq: nextInputSeq,
-        direction,
-        clientTime: Date.now(),
-      };
-      const sent = sendMessage({
+      inputSeqRef.current += 1;
+      sendMessage({
         type: 'input_direction',
         direction,
-        inputSeq: input.inputSeq,
-        clientTime: input.clientTime,
+        inputSeq: inputSeqRef.current,
+        clientTime: Date.now(),
       });
-      if (!sent) {
-        return;
-      }
-
-      inputSeqRef.current = nextInputSeq;
-      pendingInputsRef.current = [...pendingInputsRef.current, input];
-      predictedSelfRef.current = applyPredictedInput(predictedSelfRef.current, direction);
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const sendMessage = (message: ClientPayload): boolean => {
+  const sendMessage = (message: ClientPayload) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) {
-      return false;
+      return;
     }
 
     socketRef.current.send(
@@ -572,7 +545,6 @@ export default function App() {
         roundId: snapshotRef.current.roundId,
       }),
     );
-    return true;
   };
 
   const countdownLabel = useMemo(() => {
@@ -626,35 +598,12 @@ export default function App() {
     }
 
     const render = () => {
-      const now = performance.now();
       const currentFrame = currFrameRef.current;
       const previousFrame = prevFrameRef.current;
-      const predictedSelf = advancePredictedPlayer(predictedSelfRef.current, snapshotRef.current.phase, now);
-      const predictedSegments: Partial<Record<PlayerId, RenderSegment[]>> = {};
-      if (predictedSelf && snapshotRef.current.yourSlot === predictedSelf.playerId) {
-        const alpha = predictedSelf.tickMs > 0 ? clamp01((now - predictedSelf.lastStepAt) / predictedSelf.tickMs) : 1;
-        predictedSegments[predictedSelf.playerId] = predictedSelf.currentSegments.map((segment, index) => {
-          const previous = predictedSelf.previousSegments[index];
-          if (!previous) {
-            return segment;
-          }
-          return {
-            x: previous.x + (segment.x - previous.x) * alpha,
-            y: previous.y + (segment.y - previous.y) * alpha,
-          };
-        });
-      }
       const interpolationAlpha = clamp01(
-        (now - snapshotReceivedAtRef.current) / snapshotIntervalRef.current,
+        (performance.now() - snapshotReceivedAtRef.current) / snapshotIntervalRef.current,
       );
-      drawArena(
-        context,
-        currentFrame,
-        previousFrame,
-        interpolationAlpha,
-        snapshotRef.current.yourSlot,
-        predictedSegments,
-      );
+      drawArena(context, currentFrame, previousFrame, interpolationAlpha, snapshotRef.current.yourSlot);
       rafIdRef.current = window.requestAnimationFrame(render);
     };
 
