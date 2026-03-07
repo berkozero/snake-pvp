@@ -656,7 +656,7 @@ export default function App() {
       {showLobbyOverlay ? (
         <section className="menu-hero" data-testid="lobby-overlay">
           <SnakeWordmark className="menu-wordmark" />
-          <p className="menu-tagline">Three minutes. Outgrow or outcut.</p>
+          <p className="menu-tagline">Ninety seconds. Outgrow or outcut.</p>
           <button
             data-testid="start-match"
             className="start-button"

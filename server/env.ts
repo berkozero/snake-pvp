@@ -34,7 +34,7 @@ export function readServerEnv(): ServerEnv {
     tickMs: readNumber('SERVER_TICK_MS', 50),
     movementMs: readNumber('SERVER_MOVEMENT_MS', 100),
     countdownMs: readNumber('COUNTDOWN_MS', 2_400),
-    matchDurationMs: readNumber('MATCH_DURATION_MS', 180_000),
+    matchDurationMs: readNumber('MATCH_DURATION_MS', 90_000),
     livenessTimeoutMs: readNumber('LIVENESS_TIMEOUT_MS', 5_000),
     disconnectGraceMs: readNumber('DISCONNECT_GRACE_MS', 3_000),
     finishDwellMs: readNumber('FINISH_DWELL_MS', 4_000),

@@ -3,7 +3,7 @@ import type { Cell, Direction, PlayerId, PlayerState, RoundState } from './types
 export const BOARD_WIDTH = 36;
 export const BOARD_HEIGHT = 24;
 export const CELL_SIZE = 22;
-export const MATCH_DURATION_MS = 180_000;
+export const MATCH_DURATION_MS = 90_000;
 export const COUNTDOWN_MS = 2_400;
 export const RESPAWN_DELAY_MS = 2_000;
 export const START_LENGTH = 4;

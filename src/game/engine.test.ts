@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_HEIGHT, BOARD_WIDTH, MATCH_DURATION_MS, RESPAWN_DELAY_MS } from './constants';
-import { createDeterministicRandom, createTestState, getRespawnCountdown, pickFoodCell, queueDirection, tick } from './engine';
+import {
+  createDeterministicRandom,
+  createTestState,
+  formatTime,
+  getRespawnCountdown,
+  pickFoodCell,
+  queueDirection,
+  tick,
+} from './engine';
 import type { RoundState } from './types';
 
 function makePlayingState(overrides: Parameters<typeof createTestState>[0] = {}): RoundState {
@@ -16,6 +24,14 @@ function makePlayingState(overrides: Parameters<typeof createTestState>[0] = {})
 }
 
 describe('engine', () => {
+  it('formats the match timer as whole remaining seconds with ceiling behavior', () => {
+    expect(formatTime(90_000)).toBe('90');
+    expect(formatTime(89_001)).toBe('90');
+    expect(formatTime(89_000)).toBe('89');
+    expect(formatTime(1)).toBe('1');
+    expect(formatTime(0)).toBe('0');
+  });
+
   it('awards both players when they reach food on the same tick', () => {
     const state = makePlayingState({
       players: {
