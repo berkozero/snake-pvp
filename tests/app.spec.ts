@@ -18,6 +18,10 @@ async function pressGameKey(page: import('@playwright/test').Page, key: string) 
   }, key);
 }
 
+async function tapTouchControl(page: import('@playwright/test').Page, direction: 'up' | 'left' | 'right' | 'down') {
+  await page.getByTestId(`touch-${direction}`).click();
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('two clients join, get ownership, and start a live match', async ({ browser }) => {
@@ -172,6 +176,35 @@ test('respawn preview stays locked for both clients during the death delay and c
     const player = window.__SNAKE_PVP_STATE__?.game?.players.p1;
     return player?.alive === true && player.respawnPreview === null;
   });
+
+  await p1.close();
+  await p2.close();
+});
+
+test('mobile layout collapses rules and touch controls can steer the snake', async ({ browser }) => {
+  const p1 = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const p2 = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  await joinSlot(p1, 'Alpha', 'p1');
+  await joinSlot(p2, 'Bravo', 'p2');
+
+  await expect(p1.getByTestId('rules-summary')).toBeVisible();
+  await expect(p1.getByTestId('rules-groups')).not.toBeVisible();
+  await p1.getByTestId('rules-toggle').click();
+  await expect(p1.getByTestId('rules-groups')).toBeVisible();
+
+  await p1.getByTestId('start-match').click();
+
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'countdown');
+  await expect(p1.getByTestId('touch-controls-pad')).toBeVisible();
+
+  await tapTouchControl(p1, 'up');
+
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.phase === 'playing');
+  await p1.waitForFunction(() => window.__SNAKE_PVP_STATE__?.game?.players.p1.direction === 'up');
+
+  const horizontalOverflow = await p1.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(horizontalOverflow).toBeLessThanOrEqual(1);
 
   await p1.close();
   await p2.close();

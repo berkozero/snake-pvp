@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE } from './game/constants';
 import { formatTime } from './game/engine';
-import type { Cell, PlayerId } from './game/types';
+import type { Cell, Direction, PlayerId } from './game/types';
 import {
   PROTOCOL_VERSION,
   ROOM_ID,
@@ -402,6 +402,7 @@ export default function App() {
   const [snapshot, setSnapshot] = useState<RoomSnapshotMessage>(EMPTY_SNAPSHOT);
   const [p1Name, setP1Name] = useState('');
   const [p2Name, setP2Name] = useState('');
+  const [rulesExpanded, setRulesExpanded] = useState(false);
   const [message, setMessage] = useState('Connect to the server to claim a slot.');
   const [connected, setConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -592,13 +593,7 @@ export default function App() {
       }
 
       event.preventDefault();
-      inputSeqRef.current += 1;
-      sendMessage({
-        type: 'input_direction',
-        direction,
-        inputSeq: inputSeqRef.current,
-        clientTime: Date.now(),
-      });
+      sendDirection(direction);
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -618,6 +613,30 @@ export default function App() {
         roundId: snapshotRef.current.roundId,
       }),
     );
+  };
+
+  const sendDirection = (direction: Direction) => {
+    if (!snapshotRef.current.yourSlot) {
+      return;
+    }
+
+    inputSeqRef.current += 1;
+    sendMessage({
+      type: 'input_direction',
+      direction,
+      inputSeq: inputSeqRef.current,
+      clientTime: Date.now(),
+    });
+  };
+
+  const sendStartMatch = () => {
+    sendMessage({ type: 'start_match', requestId: nextRequestId() });
+  };
+
+  const leaveCurrentSlot = () => {
+    window.localStorage.removeItem(RESUME_TOKEN_KEY);
+    resumeTokenRef.current = null;
+    sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
   };
 
   const countdownLabel = useMemo(() => {
@@ -650,6 +669,7 @@ export default function App() {
   const p1LobbyColors = getLobbySlotColors('p1', snapshot.yourSlot);
   const p2LobbyColors = getLobbySlotColors('p2', snapshot.yourSlot);
   const shouldAnimateArena = !showLobbyOverlay;
+  const showTouchControls = snapshot.yourSlot !== null && (snapshot.phase === 'countdown' || snapshot.phase === 'playing');
 
   useEffect(() => {
     if (!shouldAnimateArena) {
@@ -733,7 +753,7 @@ export default function App() {
           <button
             data-testid="start-match"
             className="start-button"
-            onClick={() => sendMessage({ type: 'start_match', requestId: nextRequestId() })}
+            onClick={sendStartMatch}
             disabled={!canStart}
           >
             Start Match
@@ -812,6 +832,55 @@ export default function App() {
         ) : null}
       </section>
 
+      {!showLobbyOverlay ? (
+        <section className="touch-controls-card" data-testid="touch-controls-card">
+          {showTouchControls ? (
+            <div className="touch-controls-pad" data-testid="touch-controls-pad">
+              <button
+                type="button"
+                className="touch-control up"
+                data-testid="touch-up"
+                aria-label="Move up"
+                onClick={() => sendDirection('up')}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                className="touch-control left"
+                data-testid="touch-left"
+                aria-label="Move left"
+                onClick={() => sendDirection('left')}
+              >
+                Left
+              </button>
+              <button
+                type="button"
+                className="touch-control right"
+                data-testid="touch-right"
+                aria-label="Move right"
+                onClick={() => sendDirection('right')}
+              >
+                Right
+              </button>
+              <button
+                type="button"
+                className="touch-control down"
+                data-testid="touch-down"
+                aria-label="Move down"
+                onClick={() => sendDirection('down')}
+              >
+                Down
+              </button>
+            </div>
+          ) : (
+            <p className="touch-controls-idle" data-testid="touch-controls-idle">
+              Touch controls appear for active players during countdown and live play.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       <section className="players-card" data-testid="players-card" style={!showLobbyOverlay ? { display: 'none' } : undefined}>
         <div className="players-title">
           <div
@@ -839,11 +908,7 @@ export default function App() {
             isOwner={snapshot.yourSlot === 'p1'}
             onInputChange={setP1Name}
             onClaim={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p1', name: p1Name })}
-            onLeave={() => {
-              window.localStorage.removeItem(RESUME_TOKEN_KEY);
-              resumeTokenRef.current = null;
-              sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
-            }}
+            onLeave={leaveCurrentSlot}
           />
           <PlayerSlotCard
             slot="p2"
@@ -859,16 +924,24 @@ export default function App() {
             isOwner={snapshot.yourSlot === 'p2'}
             onInputChange={setP2Name}
             onClaim={() => sendMessage({ type: 'join_slot', requestId: nextRequestId(), slot: 'p2', name: p2Name })}
-            onLeave={() => {
-              window.localStorage.removeItem(RESUME_TOKEN_KEY);
-              resumeTokenRef.current = null;
-              sendMessage({ type: 'leave_slot', requestId: nextRequestId() });
-            }}
+            onLeave={leaveCurrentSlot}
           />
         </div>
         <section className="how-to-play how-to-play-panel" aria-label="How to play">
           <h3>How to Play</h3>
-          <div className="how-to-play-groups">
+          <div className="how-to-play-summary" data-testid="rules-summary">
+            <p>Claim a side, survive collisions, cut bodies, and finish the 90-second round with the best score.</p>
+            <button
+              type="button"
+              className="secondary rules-toggle"
+              data-testid="rules-toggle"
+              aria-expanded={rulesExpanded}
+              onClick={() => setRulesExpanded((expanded) => !expanded)}
+            >
+              {rulesExpanded ? 'Hide Full Rules' : 'Show Full Rules'}
+            </button>
+          </div>
+          <div className={`how-to-play-groups ${rulesExpanded ? 'is-expanded' : ''}`} data-testid="rules-groups">
             <section className="how-to-play-group" aria-label="Get in">
               <p className="how-to-play-group-label">Get In</p>
               <ul className="how-to-play-list">

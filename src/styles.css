@@ -387,6 +387,95 @@ button.secondary {
   margin: 12px 0 0;
 }
 
+.touch-controls-card {
+  width: min(100%, 980px);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 18px 22px 22px;
+  display: none;
+  gap: 18px;
+}
+
+.touch-controls-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.touch-controls-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.touch-controls-copy strong,
+.touch-controls-connection strong {
+  font-size: 1rem;
+  font-family: var(--font);
+}
+
+.touch-controls-copy span,
+.touch-controls-connection span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+}
+
+.touch-controls-connection {
+  min-width: 132px;
+  padding: 10px 12px;
+  border: 1px solid rgba(196, 196, 205, 0.14);
+  background:
+    linear-gradient(180deg, rgba(12, 12, 16, 0.94), rgba(8, 8, 12, 0.98)),
+    var(--panel);
+}
+
+.touch-controls-connection[data-compact-status='online'] strong {
+  color: #8df57f;
+}
+
+.touch-controls-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 88px));
+  grid-template-areas:
+    ". up ."
+    "left down right";
+  justify-content: center;
+  gap: 10px;
+}
+
+.touch-control {
+  min-height: 72px;
+  font-size: 0.9rem;
+  letter-spacing: 0.18em;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.touch-control.up {
+  grid-area: up;
+}
+
+.touch-control.left {
+  grid-area: left;
+}
+
+.touch-control.right {
+  grid-area: right;
+}
+
+.touch-control.down {
+  grid-area: down;
+}
+
+.touch-controls-idle {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .how-to-play {
   width: min(100%, 860px);
   padding: 24px 28px;
@@ -415,6 +504,24 @@ button.secondary {
   letter-spacing: 0.03em;
   font-family: var(--font);
   text-align: center;
+}
+
+.how-to-play-summary {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.how-to-play-summary p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.rules-toggle {
+  flex-shrink: 0;
 }
 
 .how-to-play-groups {
@@ -695,13 +802,29 @@ button.secondary {
 
 @media (max-width: 900px) {
   .hud-card,
-  .footer-card {
+  .footer-card,
+  .touch-controls-header {
     flex-direction: column;
     align-items: stretch;
   }
 
   .hud-wordmark {
     width: min(100%, 320px);
+  }
+
+  .touch-controls-card {
+    display: grid;
+  }
+
+  .status-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-testid='p1-score-card'],
+  [data-testid='p2-score-card'] {
+    width: auto;
+    min-width: 0;
   }
 
   .players-grid {
@@ -735,12 +858,61 @@ button.secondary {
 
 @media (max-width: 640px) {
   .shell {
-    padding: 14px;
-    gap: 14px;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom)) 8px;
+    gap: 6px;
   }
 
   .menu-hero {
-    padding: 0 14px;
+    padding: 0 4px;
+  }
+
+  .hud-card {
+    padding: 0;
+    gap: 0;
+    display: block;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .hud-card::before,
+  .arena-card::before {
+    display: none;
+  }
+
+  .hud-brand,
+  [data-testid='connection-card'] {
+    display: none;
+  }
+
+  .status-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+
+  .status-row div {
+    min-width: 0;
+    padding: 6px 8px;
+    border-color: rgba(196, 196, 205, 0.1);
+    min-height: 0;
+  }
+
+  .status-row strong {
+    font-size: 0.82rem;
+    line-height: 1.05;
+  }
+
+  .status-row span {
+    font-size: 0.52rem;
+    margin-bottom: 3px;
+    letter-spacing: 0.14em;
+  }
+
+  [data-testid='p1-score'],
+  [data-testid='p2-score'] {
+    font-size: 0.74rem;
+    line-height: 1.1;
   }
 
   .how-to-play {
@@ -756,6 +928,169 @@ button.secondary {
   }
 
   .arena-card {
-    padding-top: 30px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .arena-stage {
+    line-height: 0;
+  }
+
+  .overlay {
+    inset: auto 6px 6px 6px;
+    min-height: 26%;
+    align-content: end;
+    padding: 12px 10px;
+    background:
+      linear-gradient(180deg, rgba(4, 4, 6, 0.28), rgba(8, 8, 10, 0.92) 35%, rgba(5, 5, 7, 0.97)),
+      rgba(5, 5, 7, 0.9);
+  }
+
+  .overlay h2 {
+    font-size: clamp(1.5rem, 8vw, 2.3rem);
+  }
+
+  .respawn-preview-marker {
+    width: calc(100% / 36 * 0.72);
+    height: calc(100% / 24 * 0.72);
+  }
+
+  .respawn-preview-cell {
+    border-width: 1px;
+  }
+
+  .respawn-preview-arrow::after {
+    border-left-width: 7px;
+    border-right-width: 7px;
+    border-bottom-width: 12px;
+  }
+
+  .status-copy {
+    max-width: none;
+    font-size: 0.78rem;
+  }
+
+  .touch-controls-card {
+    padding: 0;
+    gap: 6px;
+    margin-top: -4px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .touch-controls-header {
+    display: none;
+  }
+
+  .touch-controls-connection {
+    min-width: 0;
+  }
+
+  .touch-controls-pad {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      ". up ."
+      "left down right";
+    gap: 4px;
+  }
+
+  .touch-control {
+    min-height: 34px;
+    padding: 0.3rem 0.2rem;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    border-radius: 2px;
+  }
+
+  .players-title {
+    padding: 20px 16px 16px;
+  }
+
+  .players-title strong {
+    font-size: 1.25rem;
+  }
+
+  .slot-row {
+    flex-wrap: wrap;
+    align-items: start;
+  }
+
+  .slot-input {
+    width: 100%;
+  }
+
+  .how-to-play-summary {
+    display: grid;
+  }
+
+  .how-to-play-groups {
+    display: none;
+  }
+
+  .how-to-play-groups.is-expanded {
+    display: grid;
+  }
+
+  .how-to-play-panel {
+    padding-top: 16px;
+  }
+
+  .score-grid {
+    gap: 6px;
+  }
+
+  .controls-grid p {
+    min-width: 0;
+    width: calc(50% - 7px);
+    padding: 8px 10px;
+  }
+
+  .respawn-preview-marker {
+    filter: drop-shadow(0 0 8px var(--preview-glow));
+  }
+
+  .respawn-preview-cell {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 0 12px color-mix(in srgb, var(--preview-fill) 38%, transparent);
+  }
+}
+
+@media (max-width: 420px) {
+  .status-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .touch-control {
+    min-height: 32px;
+    padding: 0.35rem 0.1rem;
+  }
+
+  .menu-tagline {
+    font-size: 0.64rem;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 900px) {
+  .shell {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .touch-controls-pad {
+    grid-template-columns: repeat(3, minmax(0, 88px));
+    grid-template-areas:
+      ". up ."
+      "left down right";
+    justify-content: center;
+  }
+
+  .overlay {
+    min-height: auto;
+    max-width: 56%;
+    margin-left: auto;
   }
 }
