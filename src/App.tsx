@@ -16,7 +16,7 @@ import {
 } from './net/protocol';
 import SnakeWordmark from './SnakeWordmark';
 import { getGameServerUrl } from './config';
-import { getLobbySlotColors, getMatchPlayerColors } from './playerColors';
+import { getLobbySlotColors, getMatchPlayerColors, getRespawnPreviewColors } from './playerColors';
 
 type ClientPayload = ClientMessage extends infer T
   ? T extends ClientMessage
@@ -557,7 +557,7 @@ export default function App() {
                   return null;
                 }
 
-                const colors = getMatchPlayerColors(playerId, snapshot.yourSlot);
+                const colors = getRespawnPreviewColors(playerId, snapshot.yourSlot);
                 return (
                   <div
                     key={playerId}

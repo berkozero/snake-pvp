@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getLobbySlotColors, getMatchPlayerColors } from './playerColors';
+import { getLobbySlotColors, getMatchPlayerColors, getRespawnPreviewColors } from './playerColors';
 
 describe('playerColors', () => {
   it('renders lobby slots as neutral before a player claims a side', () => {
@@ -47,6 +47,21 @@ describe('playerColors', () => {
       fill: '#9a9aa3',
       glow: 'rgba(154, 154, 163, 0.22)',
       text: '#b7b7c0',
+    });
+  });
+
+  it('keeps respawn previews high-contrast for opponents and viewers', () => {
+    expect(getRespawnPreviewColors('p1', 'p1')).toEqual({
+      fill: '#7cff7a',
+      glow: 'rgba(124, 255, 122, 0.24)',
+    });
+    expect(getRespawnPreviewColors('p2', 'p1')).toEqual({
+      fill: '#f2f2f5',
+      glow: 'rgba(242, 242, 245, 0.34)',
+    });
+    expect(getRespawnPreviewColors('p1', null)).toEqual({
+      fill: '#f2f2f5',
+      glow: 'rgba(242, 242, 245, 0.34)',
     });
   });
 });

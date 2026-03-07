@@ -6,6 +6,11 @@ export type PlayerRenderColors = {
   text: string;
 };
 
+export type RespawnPreviewColors = {
+  fill: string;
+  glow: string;
+};
+
 export type LobbySlotColors = {
   text: string;
   status: string;
@@ -21,6 +26,11 @@ const OPPONENT_COLORS: PlayerRenderColors = {
   fill: '#9a9aa3',
   glow: 'rgba(154, 154, 163, 0.22)',
   text: '#b7b7c0',
+};
+
+const OPPONENT_PREVIEW_COLORS: RespawnPreviewColors = {
+  fill: '#f2f2f5',
+  glow: 'rgba(242, 242, 245, 0.34)',
 };
 
 const LOBBY_NEUTRAL: LobbySlotColors = {
@@ -49,4 +59,15 @@ export function getLobbySlotColors(playerId: PlayerId, yourSlot: PlayerId | null
   }
 
   return LOBBY_NEUTRAL;
+}
+
+export function getRespawnPreviewColors(playerId: PlayerId, yourSlot: PlayerId | null): RespawnPreviewColors {
+  if (yourSlot && playerId === yourSlot) {
+    return {
+      fill: OWN_COLORS.fill,
+      glow: OWN_COLORS.glow,
+    };
+  }
+
+  return OPPONENT_PREVIEW_COLORS;
 }
