@@ -8,7 +8,6 @@
   --text: #f2f2f5;
   --muted: #8f8f99;
   --bright: #7cff7a;
-  --bright-2: #56a8ff;
   --accent: #ff9e3b;
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
   --font: "Space Mono", "Lucida Console", "Courier New", monospace;
@@ -157,14 +156,6 @@ button.secondary {
   font-size: 1.2rem;
   font-family: var(--font);
   letter-spacing: 0;
-}
-
-.status-row div:nth-child(2) strong {
-  color: var(--bright);
-}
-
-.status-row div:nth-child(3) strong {
-  color: var(--bright-2);
 }
 
 .status-row small {
@@ -475,16 +466,6 @@ button.secondary {
   justify-content: center;
 }
 
-.controls-grid p:first-child span,
-.controls-grid p:first-child {
-  color: var(--bright);
-}
-
-.controls-grid p:nth-child(2) span,
-.controls-grid p:nth-child(2) {
-  color: var(--bright-2);
-}
-
 .controls-grid p,
 .footer-card div {
   font-family: var(--font);
@@ -621,21 +602,11 @@ button.secondary {
   letter-spacing: 0;
 }
 
-.p1-slot strong,
-.p1-slot > span {
-  color: var(--bright);
-}
-
 .player-slot-card small {
   display: block;
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.player-slot-card.alt strong,
-.player-slot-card.alt span {
-  color: var(--bright-2);
 }
 
 .slot-row {
