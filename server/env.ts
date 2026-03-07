@@ -2,6 +2,7 @@ type ServerEnv = {
   host: string;
   port: number;
   tickMs: number;
+  movementMs: number;
   countdownMs: number;
   matchDurationMs: number;
   livenessTimeoutMs: number;
@@ -31,6 +32,7 @@ export function readServerEnv(): ServerEnv {
     host,
     port: readNumber('PORT', 3001),
     tickMs: readNumber('SERVER_TICK_MS', 50),
+    movementMs: readNumber('SERVER_MOVEMENT_MS', 100),
     countdownMs: readNumber('COUNTDOWN_MS', 2_400),
     matchDurationMs: readNumber('MATCH_DURATION_MS', 180_000),
     livenessTimeoutMs: readNumber('LIVENESS_TIMEOUT_MS', 5_000),

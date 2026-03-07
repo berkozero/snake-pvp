@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ServerMessage } from '../src/net/protocol';
-import { createRoomForTests } from './room';
+import { DEFAULT_MATCH_DURATION_MS, createRoomForTests } from './room';
+
+const AUTHORITATIVE_TICK_MS = 50;
 
 function createHarness() {
   let now = 1_000;
@@ -39,14 +41,19 @@ function createHarness() {
   };
 
   const advance = (ms: number) => {
-    const steps = Math.ceil(ms / 100);
+    const steps = Math.ceil(ms / AUTHORITATIVE_TICK_MS);
     for (let index = 0; index < steps; index += 1) {
-      now += 100;
+      now += AUTHORITATIVE_TICK_MS;
       room.tick();
     }
   };
 
-  return { room, sent, logs, connect, send, latest, advance, getNow: () => now, setNow: (value: number) => { now = value; } };
+  const tickOnce = (ms = AUTHORITATIVE_TICK_MS) => {
+    now += ms;
+    room.tick();
+  };
+
+  return { room, sent, logs, connect, send, latest, advance, tickOnce, getNow: () => now, setNow: (value: number) => { now = value; } };
 }
 
 describe('MainRoom', () => {
@@ -170,7 +177,7 @@ describe('MainRoom', () => {
   });
 
   it('keeps roundId stable through finish and resets it after dwell', () => {
-    const { room, connect, send, advance } = createHarness();
+    const { room, connect, send, advance, tickOnce } = createHarness();
 
     connect('s1');
     connect('s2');
@@ -186,7 +193,8 @@ describe('MainRoom', () => {
       room.phase = 'playing';
     }
 
-    room.tick();
+    tickOnce();
+    tickOnce();
     expect(room.phase).toBe('finished');
     expect(room.roundId).toBe(roundId);
 
@@ -196,8 +204,8 @@ describe('MainRoom', () => {
     expect(room.tickSeq).toBe(0);
   });
 
-  it('increments tickSeq per authoritative tick and sends an immediate snapshot on accepted start', () => {
-    const { room, connect, send, latest } = createHarness();
+  it('increments tickSeq only when a movement step advances board state and sends an immediate snapshot on accepted start', () => {
+    const { room, connect, send, latest, tickOnce } = createHarness();
 
     connect('s1');
     connect('s2');
@@ -213,7 +221,18 @@ describe('MainRoom', () => {
       expect(startSnapshot.roundId).not.toBeNull();
     }
 
-    room.tick();
+    tickOnce();
+    expect(room.tickSeq).toBe(0);
+
+    if (room.game) {
+      room.game = { ...room.game, phase: 'playing', countdownMs: 0 };
+      room.phase = 'playing';
+    }
+
+    tickOnce();
+    expect(room.tickSeq).toBe(0);
+
+    tickOnce();
     expect(room.tickSeq).toBe(1);
   });
 
@@ -228,7 +247,7 @@ describe('MainRoom', () => {
   });
 
   it('rejects stale round messages from an old round', () => {
-    const { room, connect, send, latest, advance } = createHarness();
+    const { room, connect, send, latest, advance, tickOnce } = createHarness();
 
     connect('s1');
     connect('s2');
@@ -241,7 +260,8 @@ describe('MainRoom', () => {
       room.game = { ...room.game, phase: 'playing', countdownMs: 0, remainingMs: 100 };
       room.phase = 'playing';
     }
-    room.tick();
+    tickOnce();
+    tickOnce();
     advance(4_100);
 
     connect('s3');
@@ -280,7 +300,7 @@ describe('MainRoom', () => {
   });
 
   it('includes the same respawn preview in snapshots for both clients during the death window', () => {
-    const { room, connect, send, latest } = createHarness();
+    const { room, connect, send, latest, advance } = createHarness();
 
     connect('s1');
     connect('s2');
@@ -306,7 +326,7 @@ describe('MainRoom', () => {
       room.phase = 'playing';
     }
 
-    room.tick();
+    advance(100);
 
     const p1Snapshot = latest('s1');
     const p2Snapshot = latest('s2');
@@ -318,6 +338,80 @@ describe('MainRoom', () => {
       expect(p1Snapshot.game?.players.p1.respawnRemainingMs).toBeGreaterThan(0);
       expect(p1Snapshot.game?.players.p1.respawnPreview).toEqual(p2Snapshot.game?.players.p1.respawnPreview);
     }
+  });
+
+  it('accepts inputs on heartbeat ticks and applies the latest valid direction on the next movement step', () => {
+    const { room, connect, send, advance } = createHarness();
+
+    connect('s1');
+    connect('s2');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'b', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    if (room.game) {
+      room.game = {
+        ...room.game,
+        phase: 'playing',
+        countdownMs: 0,
+        players: {
+          ...room.game.players,
+          p1: {
+            ...room.game.players.p1,
+            segments: [{ x: 8, y: 12 }, { x: 7, y: 12 }, { x: 6, y: 12 }, { x: 5, y: 12 }],
+            direction: 'right',
+            pendingDirection: 'right',
+          },
+        },
+      };
+      room.phase = 'playing';
+    }
+
+    advance(50);
+    send('s1', { type: 'input_direction', direction: 'up', inputSeq: 1, clientTime: 1 });
+    send('s1', { type: 'input_direction', direction: 'left', inputSeq: 2, clientTime: 2 });
+
+    expect(room.game?.players.p1.pendingDirection).toBe('up');
+    expect(room.game?.players.p1.segments[0]).toEqual({ x: 8, y: 12 });
+
+    advance(50);
+
+    expect(room.game?.players.p1.direction).toBe('up');
+    expect(room.game?.players.p1.segments[0]).toEqual({ x: 8, y: 11 });
+    expect(room.tickSeq).toBe(1);
+  });
+
+  it('preserves elapsed remainder when countdown completes mid-heartbeat', () => {
+    const { room, connect, send, tickOnce } = createHarness();
+
+    connect('s1');
+    connect('s2');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'b', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    if (room.game) {
+      room.game = {
+        ...room.game,
+        countdownMs: 25,
+        players: {
+          ...room.game.players,
+          p1: {
+            ...room.game.players.p1,
+            segments: [{ x: 8, y: 12 }, { x: 7, y: 12 }, { x: 6, y: 12 }, { x: 5, y: 12 }],
+            direction: 'right',
+            pendingDirection: 'right',
+          },
+        },
+      };
+    }
+
+    tickOnce(125);
+
+    expect(room.phase).toBe('playing');
+    expect(room.game?.remainingMs).toBe(DEFAULT_MATCH_DURATION_MS - 100);
+    expect(room.game?.players.p1.segments[0]).toEqual({ x: 9, y: 12 });
+    expect(room.tickSeq).toBe(1);
   });
 
   it('finishes by forfeit after grace expiry during play and ignores disconnect branching during finished', () => {

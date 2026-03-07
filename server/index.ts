@@ -7,6 +7,7 @@ const env = readServerEnv();
 const sockets = new Map<string, ServerWebSocket<{ socketId: string }>>();
 const room = new MainRoom({
   tickMs: env.tickMs,
+  movementMs: env.movementMs,
   countdownMs: env.countdownMs,
   matchDurationMs: env.matchDurationMs,
   livenessTimeoutMs: env.livenessTimeoutMs,
@@ -79,6 +80,7 @@ logEvent('server_started', {
   port: env.port,
   roomId: room.roomId,
   tickMs: env.tickMs,
+  movementMs: env.movementMs,
 });
 
 console.log(`Snake PVP server listening on ws://${server.hostname}:${server.port}/ws`);

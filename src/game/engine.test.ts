@@ -33,6 +33,46 @@ describe('engine', () => {
     expect(result.players.p2.segments).toHaveLength(5);
   });
 
+  it('advances timers on heartbeat ticks without moving snakes', () => {
+    const state = makePlayingState({
+      remainingMs: 500,
+      players: {
+        p1: {
+          segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }, { x: 1, y: 5 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+      },
+    });
+
+    const result = tick(state, 50, 1_050, { shouldMove: false });
+
+    expect(result.state.remainingMs).toBe(450);
+    expect(result.state.clockMs).toBe(50);
+    expect(result.state.players.p1.segments[0]).toEqual({ x: 4, y: 5 });
+    expect(result.didAdvanceBoard).toBe(false);
+  });
+
+  it('moves only on the configured movement step after heartbeat ticks advance timers', () => {
+    const state = makePlayingState({
+      remainingMs: 500,
+      players: {
+        p1: {
+          segments: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }, { x: 1, y: 5 }],
+          direction: 'right',
+          pendingDirection: 'down',
+        },
+      },
+    });
+
+    const heartbeat = tick(state, 50, 1_050, { shouldMove: false }).state;
+    const moved = tick(heartbeat, 0, 1_100, { shouldMove: true }).state;
+
+    expect(heartbeat.players.p1.segments[0]).toEqual({ x: 4, y: 5 });
+    expect(moved.players.p1.segments[0]).toEqual({ x: 4, y: 6 });
+    expect(moved.remainingMs).toBe(450);
+  });
+
   it('ignores instant reverse inputs', () => {
     const state = makePlayingState({
       players: {
@@ -96,6 +136,27 @@ describe('engine', () => {
     expect(respawnedState.players.p1.direction).toBe(preview?.direction);
     expect(respawnedState.players.p1.segments[0]).toEqual(preview?.head);
     expect(respawnedState.players.p1.respawnPreview).toBeNull();
+  });
+
+  it('respawns on a heartbeat tick as soon as the respawn timer expires', () => {
+    const state = makePlayingState({
+      players: {
+        p1: {
+          segments: [{ x: 35, y: 5 }, { x: 34, y: 5 }, { x: 33, y: 5 }, { x: 32, y: 5 }],
+          direction: 'right',
+          pendingDirection: 'right',
+        },
+      },
+    });
+
+    const deadState = tick(state, state.tickMs, 1_000, { random: createDeterministicRandom([0]) }).state;
+    const respawned = tick(deadState, RESPAWN_DELAY_MS, 4_000, {
+      random: createDeterministicRandom([0]),
+      shouldMove: false,
+    }).state;
+
+    expect(respawned.players.p1.alive).toBe(true);
+    expect(respawned.players.p1.respawnPreview).toBeNull();
   });
 
   it('respawns food only on free cells, even when only one cell is open', () => {
