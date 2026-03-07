@@ -20,6 +20,7 @@ type RandomSource = () => number;
 
 type GameRuntimeOptions = {
   random?: RandomSource;
+  shouldMove?: boolean;
 };
 
 type CreateStateOverrides = Partial<Omit<RoundState, 'players' | 'board'>> & {
@@ -288,13 +289,14 @@ type MoveData = {
 
 export function tick(state: RoundState, deltaMs: number, _nowMs: number, options: GameRuntimeOptions = {}): TickResult {
   const random = options.random ?? Math.random;
+  const shouldMove = options.shouldMove ?? true;
 
   if (state.phase === 'menu' || state.phase === 'finished') {
-    return { state, events: [] };
+    return { state, events: [], didAdvanceBoard: false };
   }
 
   if (state.phase === 'paused') {
-    return { state, events: [] };
+    return { state, events: [], didAdvanceBoard: false };
   }
 
   if (state.phase === 'countdown') {
@@ -303,9 +305,10 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       return {
         state: { ...state, phase: 'playing', countdownMs: 0, clockMs: state.clockMs + deltaMs },
         events: ['countdown-complete'],
+        didAdvanceBoard: false,
       };
     }
-    return { state: { ...state, countdownMs, clockMs: state.clockMs + deltaMs }, events: [] };
+    return { state: { ...state, countdownMs, clockMs: state.clockMs + deltaMs }, events: [], didAdvanceBoard: false };
   }
 
   const workingState: RoundState = {
@@ -316,6 +319,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
   };
   const events: string[] = [];
   const respawnedIds = new Set<PlayerId>();
+  let didAdvanceBoard = false;
 
   const respawnOccupied = new Set<string>();
   for (const id of PLAYER_IDS) {
@@ -333,7 +337,28 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       }
       respawnedIds.add(id);
       events.push(`${id}-respawn`);
+      didAdvanceBoard = true;
     }
+  }
+
+  if (workingState.remainingMs === 0) {
+    return {
+      state: {
+        ...workingState,
+        phase: 'finished',
+        winner: finalizeWinner(workingState.players),
+      },
+      events,
+      didAdvanceBoard,
+    };
+  }
+
+  if (!shouldMove) {
+    return {
+      state: workingState,
+      events,
+      didAdvanceBoard,
+    };
   }
 
   const aliveIds = PLAYER_IDS.filter((id) => workingState.players[id].alive);
@@ -365,6 +390,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       },
     };
   }
+  didAdvanceBoard = didAdvanceBoard || movingAliveIds.length > 0;
 
   const playersAfterMove = { ...workingState.players };
   for (const id of movingAliveIds) {
@@ -503,6 +529,7 @@ export function tick(state: RoundState, deltaMs: number, _nowMs: number, options
       winner,
     },
     events,
+    didAdvanceBoard,
   };
 }
 

@@ -8,6 +8,7 @@ export const COUNTDOWN_MS = 2_400;
 export const RESPAWN_DELAY_MS = 3_000;
 export const START_LENGTH = 4;
 export const TICK_MS = 50;
+export const MOVEMENT_MS = 100;
 export const PAUSE_KEY = ' ';
 
 const PLAYER_CONFIG: Record<PlayerId, Pick<PlayerState, 'name' | 'color' | 'glow' | 'keyMap'>> = {
@@ -99,6 +100,7 @@ export function createInitialState(randomFood: Cell): RoundState {
     winner: null,
     countdownMs: COUNTDOWN_MS,
     tickMs: TICK_MS,
+    movementMs: MOVEMENT_MS,
     paused: false,
   };
 }

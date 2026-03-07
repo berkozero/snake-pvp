@@ -2,6 +2,7 @@ import {
   BOARD_HEIGHT,
   BOARD_WIDTH,
   MATCH_DURATION_MS,
+  MOVEMENT_MS,
   TICK_MS,
   createInitialState,
   makeStartingSnake,
@@ -53,6 +54,7 @@ type RoomOptions = {
   now?: () => number;
   random?: RandomSource;
   tickMs?: number;
+  movementMs?: number;
   countdownMs?: number;
   matchDurationMs?: number;
   livenessTimeoutMs?: number;
@@ -145,6 +147,7 @@ export class MainRoom {
   private readonly now: () => number;
   private readonly random: RandomSource;
   private readonly tickMs: number;
+  private readonly movementMs: number;
   private readonly countdownMs: number;
   private readonly matchDurationMs: number;
   private readonly livenessTimeoutMs: number;
@@ -153,11 +156,14 @@ export class MainRoom {
   private readonly rateLimitPerSecond: number;
   private readonly emitToSession: (socketId: string, message: ServerMessage) => void;
   private readonly log: (event: string, context?: Record<string, string | number | boolean | null | undefined>) => void;
+  private lastSimulationAt: number | null = null;
+  private movementAccumulatorMs = 0;
 
   constructor(options: RoomOptions = {}) {
     this.now = options.now ?? Date.now;
     this.random = options.random ?? Math.random;
     this.tickMs = options.tickMs ?? TICK_MS;
+    this.movementMs = options.movementMs ?? MOVEMENT_MS;
     this.countdownMs = options.countdownMs ?? 2_400;
     this.matchDurationMs = options.matchDurationMs ?? MATCH_DURATION_MS;
     this.livenessTimeoutMs = options.livenessTimeoutMs ?? 5_000;
@@ -270,6 +276,7 @@ export class MainRoom {
 
   tick(): void {
     const now = this.now();
+    const elapsedMs = this.getElapsedTickMs(now);
 
     for (const session of this.sessions.values()) {
       if (session.connected && now - session.lastSeenAt > this.livenessTimeoutMs) {
@@ -292,23 +299,56 @@ export class MainRoom {
         return;
       }
 
-      const result = tick(this.game, this.tickMs, now, { random: this.random });
-      this.game = result.state;
-      this.tickSeq += 1;
+      if (elapsedMs > 0) {
+        let remainingElapsedMs = elapsedMs;
 
-      if (this.phase === 'countdown' && this.game.phase === 'playing') {
-        this.phase = 'playing';
-      }
+        if (this.phase === 'countdown' && this.game.phase === 'countdown') {
+          const countdownStepMs = Math.min(remainingElapsedMs, this.game.countdownMs);
+          const countdownResult = tick(this.game, countdownStepMs, now, { random: this.random, shouldMove: false });
+          this.game = countdownResult.state;
+          if (countdownResult.didAdvanceBoard) {
+            this.tickSeq += 1;
+          }
+          remainingElapsedMs -= countdownStepMs;
 
-      if (this.game.phase === 'finished') {
-        this.phase = 'finished';
-        this.result = {
-          winner: this.game.winner ?? 'draw',
-          reason: 'timeout',
-          forfeitSlot: null,
-        };
-        this.finishAt = now + this.finishDwellMs;
-        this.log('timeout_finish', { roundId: this.roundId, winner: this.result.winner });
+          if (this.game.phase === 'playing') {
+            this.phase = 'playing';
+            this.movementAccumulatorMs = 0;
+          }
+        }
+
+        if (remainingElapsedMs > 0 && this.phase === 'playing' && this.game.phase === 'playing') {
+          const playTimerResult = tick(this.game, remainingElapsedMs, now, { random: this.random, shouldMove: false });
+          this.game = playTimerResult.state;
+          if (playTimerResult.didAdvanceBoard) {
+            this.tickSeq += 1;
+          }
+          this.movementAccumulatorMs += remainingElapsedMs;
+        }
+
+        while (this.phase === 'playing' && this.game.phase === 'playing' && this.movementAccumulatorMs >= this.movementMs) {
+          const moveResult = tick(this.game, 0, now, { random: this.random, shouldMove: true });
+          this.game = moveResult.state;
+          this.movementAccumulatorMs -= this.movementMs;
+          if (moveResult.didAdvanceBoard) {
+            this.tickSeq += 1;
+          }
+          if (this.game.phase === 'finished') {
+            break;
+          }
+        }
+
+        if (this.game.phase === 'finished') {
+          this.phase = 'finished';
+          this.result = {
+            winner: this.game.winner ?? 'draw',
+            reason: 'timeout',
+            forfeitSlot: null,
+          };
+          this.finishAt = now + this.finishDwellMs;
+          this.movementAccumulatorMs = 0;
+          this.log('timeout_finish', { roundId: this.roundId, winner: this.result.winner });
+        }
       }
 
       this.broadcastSnapshot();
@@ -546,12 +586,15 @@ export class MainRoom {
       countdownMs: this.countdownMs,
       remainingMs: this.matchDurationMs,
       tickMs: this.tickMs,
+      movementMs: this.movementMs,
     };
     this.phase = 'countdown';
     this.roundId = makeRoundId();
     this.tickSeq = 0;
     this.result = null;
     this.finishAt = null;
+    this.lastSimulationAt = this.now();
+    this.movementAccumulatorMs = 0;
     this.syncSessionPendingDirections();
 
     this.log('start_accepted', {
@@ -699,6 +742,7 @@ export class MainRoom {
         forfeitSlot: slot,
       };
       this.finishAt = this.now() + this.finishDwellMs;
+      this.movementAccumulatorMs = 0;
       this.log('forfeit', { roundId: this.roundId, forfeitSlot: slot, winner });
       this.cleanupDisconnectedSessions();
       this.broadcastSnapshot();
@@ -717,6 +761,8 @@ export class MainRoom {
     this.tickSeq = 0;
     this.result = null;
     this.finishAt = null;
+    this.lastSimulationAt = null;
+    this.movementAccumulatorMs = 0;
     this.refreshLobbyPhase();
   }
 
@@ -782,6 +828,8 @@ export class MainRoom {
     this.game = null;
     this.result = null;
     this.finishAt = null;
+    this.lastSimulationAt = null;
+    this.movementAccumulatorMs = 0;
     this.cleanupDisconnectedSessions();
     this.log('room_reset', {});
   }
@@ -851,6 +899,17 @@ export class MainRoom {
     this.emitToSession(socketId, this.snapshotFor(socketId));
   }
 
+  private getElapsedTickMs(now: number): number {
+    if (this.lastSimulationAt === null) {
+      this.lastSimulationAt = now;
+      return 0;
+    }
+
+    const elapsedMs = Math.max(0, now - this.lastSimulationAt);
+    this.lastSimulationAt = now;
+    return elapsedMs;
+  }
+
   private broadcastSnapshot(): void {
     for (const session of this.sessions.values()) {
       if (session.connected) {
@@ -863,7 +922,8 @@ export class MainRoom {
 export function createRoomForTests(options: RoomOptions = {}): MainRoom {
   return new MainRoom({
     ...options,
-    tickMs: options.tickMs ?? 100,
+    tickMs: options.tickMs ?? 50,
+    movementMs: options.movementMs ?? 100,
   });
 }
 

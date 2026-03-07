@@ -42,10 +42,12 @@ export type RoundState = {
   winner: PlayerId | 'draw' | null;
   countdownMs: number;
   tickMs: number;
+  movementMs: number;
   paused: boolean;
 };
 
 export type TickResult = {
   state: RoundState;
   events: string[];
+  didAdvanceBoard: boolean;
 };
