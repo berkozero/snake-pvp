@@ -1,5 +1,6 @@
 node_modules/
 dist/
+apps/web/dist/
 test-results/
 playwright-report/
 *.tsbuildinfo
@@ -12,3 +13,6 @@ vite.config.d.ts
 .vercel/
 .railway/
 .vercel
+tools/ai/.local/
+tools/ai/**/__pycache__/
+tools/ai/**/*.pyc

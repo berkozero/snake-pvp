@@ -1,0 +1,28 @@
+{
+  "name": "@snake/tools-ai",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "bridge": "bun scripts/bridge.ts",
+    "smoke": "bun scripts/smoke-eval.ts",
+    "dataset": "bun scripts/generate-dataset.ts",
+    "hard-states": "bun scripts/extract-hard-states.ts",
+    "analyze-losses": "bun scripts/analyze-flagged-losses.ts",
+    "train": "python3 python/train.py",
+    "eval": "bun scripts/checkpoint-eval.ts",
+    "rl-train": "python3 python/rl_train.py",
+    "rl-eval": "bun scripts/rl-eval.ts",
+    "rl-selfplay-smoke": "bun scripts/rl-selfplay-smoke.ts",
+    "export-policy": "python3 python/export_rl_policy_json.py",
+    "gate": "vitest run scripts/milestone-gate.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@snake/game-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.1",
+    "@types/node": "^24.3.0"
+  }
+}
