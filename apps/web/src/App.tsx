@@ -38,7 +38,6 @@ type ViewerUiState = {
   isWatcher: boolean;
   isAiOnlyRoom: boolean;
   isLockedViewer: boolean;
-  showWatchOverlay: boolean;
   showLobbyOverlay: boolean;
   showPlayerClaims: boolean;
   canClaim: boolean;
@@ -310,16 +309,10 @@ export function getViewerUiState(snapshot: RoomSnapshotMessage, connected: boole
       snapshot.phase === 'playing' ||
       snapshot.phase === 'ready'
     );
-  const showWatchOverlay =
-    isWatcher &&
-    isAiOnlyRoom &&
-    (snapshot.phase === 'countdown' || snapshot.phase === 'playing');
-
   return {
     isWatcher,
     isAiOnlyRoom,
     isLockedViewer,
-    showWatchOverlay,
     showLobbyOverlay:
       snapshot.phase === 'empty' ||
       snapshot.phase === 'waiting' ||
@@ -748,7 +741,7 @@ export default function App() {
   }, [snapshot]);
 
   const viewerUi = getViewerUiState(snapshot, connected);
-  const { isLockedViewer, showWatchOverlay, showLobbyOverlay, showPlayerClaims, canClaim, canStart } = viewerUi;
+  const { isLockedViewer, showLobbyOverlay, showPlayerClaims, canClaim, canStart } = viewerUi;
   const canManageAi = connected && (snapshot.phase === 'empty' || snapshot.phase === 'waiting' || snapshot.phase === 'ready');
   const heads = snapshot.game
     ? {
@@ -906,14 +899,6 @@ export default function App() {
           <div className="overlay slim" data-testid="viewer-overlay">
             <p className="eyebrow">Room Locked</p>
             <h2>{snapshot.phase === 'finished' ? 'Match Resetting' : 'Room Full'}</h2>
-            <p className="status-copy">{message}</p>
-          </div>
-        ) : null}
-
-        {showWatchOverlay ? (
-          <div className="overlay slim watch-overlay" data-testid="watch-overlay">
-            <p className="eyebrow">Watch Mode</p>
-            <h2>{snapshot.phase === 'countdown' ? 'AI Match Starting' : 'Watching AI Match'}</h2>
             <p className="status-copy">{message}</p>
           </div>
         ) : null}

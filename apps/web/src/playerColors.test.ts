@@ -37,11 +37,11 @@ describe('playerColors', () => {
     });
   });
 
-  it('renders both match snakes gray for viewers', () => {
+  it('renders p1 green and p2 gray for viewers', () => {
     expect(getMatchPlayerColors('p1', null)).toEqual({
-      fill: '#9a9aa3',
-      glow: 'rgba(154, 154, 163, 0.22)',
-      text: '#b7b7c0',
+      fill: '#7cff7a',
+      glow: 'rgba(124, 255, 122, 0.24)',
+      text: '#7cff7a',
     });
     expect(getMatchPlayerColors('p2', null)).toEqual({
       fill: '#9a9aa3',

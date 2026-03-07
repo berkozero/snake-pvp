@@ -40,7 +40,7 @@ const LOBBY_NEUTRAL: LobbySlotColors = {
 
 export function getMatchPlayerColors(playerId: PlayerId, yourSlot: PlayerId | null): PlayerRenderColors {
   if (!yourSlot) {
-    return OPPONENT_COLORS;
+    return playerId === 'p1' ? OWN_COLORS : OPPONENT_COLORS;
   }
 
   return playerId === yourSlot ? OWN_COLORS : OPPONENT_COLORS;
