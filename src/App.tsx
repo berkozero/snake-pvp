@@ -24,6 +24,18 @@ type ClientPayload = ClientMessage extends infer T
     : never
   : never;
 
+type RenderFrame = {
+  roundId: string | null;
+  phase: RoomPhase;
+  tickSeq: number;
+  game: GameSnapshot | null;
+};
+
+type RenderSegment = {
+  x: number;
+  y: number;
+};
+
 const CANVAS_WIDTH = BOARD_WIDTH * CELL_SIZE;
 const CANVAS_HEIGHT = BOARD_HEIGHT * CELL_SIZE;
 const RESUME_TOKEN_KEY = 'snake-pvp-resume-token';
@@ -64,7 +76,87 @@ function nextRequestId(): string {
   return `req_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null, yourSlot: PlayerId | null): void {
+function getRenderFrame(snapshot: RoomSnapshotMessage): RenderFrame {
+  return {
+    roundId: snapshot.roundId,
+    phase: snapshot.phase,
+    tickSeq: snapshot.tickSeq,
+    game: snapshot.game,
+  };
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function isSafeInterpolatedMove(previous: Cell, current: Cell): boolean {
+  return Math.abs(current.x - previous.x) + Math.abs(current.y - previous.y) === 1;
+}
+
+function canInterpolatePlayer(previousFrame: RenderFrame | null, currentFrame: RenderFrame | null, playerId: PlayerId): boolean {
+  if (!previousFrame || !currentFrame || !previousFrame.game || !currentFrame.game) {
+    return false;
+  }
+  if (previousFrame.roundId !== currentFrame.roundId) {
+    return false;
+  }
+  if (previousFrame.phase !== 'playing' || currentFrame.phase !== 'playing') {
+    return false;
+  }
+  if (currentFrame.tickSeq <= previousFrame.tickSeq) {
+    return false;
+  }
+
+  const previousPlayer = previousFrame.game.players[playerId];
+  const currentPlayer = currentFrame.game.players[playerId];
+  if (!previousPlayer.alive || !currentPlayer.alive) {
+    return false;
+  }
+  if (previousPlayer.segments.length !== currentPlayer.segments.length) {
+    return false;
+  }
+
+  const previousHead = previousPlayer.segments[0];
+  const currentHead = currentPlayer.segments[0];
+  if (!previousHead || !currentHead) {
+    return false;
+  }
+
+  return isSafeInterpolatedMove(previousHead, currentHead);
+}
+
+function getRenderedSegments(
+  previousFrame: RenderFrame | null,
+  currentFrame: RenderFrame | null,
+  playerId: PlayerId,
+  interpolationAlpha: number,
+): RenderSegment[] {
+  const currentPlayer = currentFrame?.game?.players[playerId];
+  if (!currentPlayer) {
+    return [];
+  }
+  if (!canInterpolatePlayer(previousFrame, currentFrame, playerId)) {
+    return currentPlayer.segments;
+  }
+
+  const previousSegments = previousFrame!.game!.players[playerId].segments;
+  return currentPlayer.segments.map((segment, index) => {
+    const previous = previousSegments[index];
+    return {
+      x: previous.x + (segment.x - previous.x) * interpolationAlpha,
+      y: previous.y + (segment.y - previous.y) * interpolationAlpha,
+    };
+  });
+}
+
+function drawArena(
+  ctx: CanvasRenderingContext2D,
+  currentFrame: RenderFrame | null,
+  previousFrame: RenderFrame | null,
+  interpolationAlpha: number,
+  yourSlot: PlayerId | null,
+): void {
+  const currentGame = currentFrame?.game ?? null;
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   const grid = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -112,12 +204,12 @@ function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null, you
   ctx.strokeRect(6.5, 6.5, CANVAS_WIDTH - 13, CANVAS_HEIGHT - 13);
   ctx.restore();
 
-  if (!game) {
+  if (!currentGame) {
     return;
   }
 
-  const foodX = game.food.x * CELL_SIZE + CELL_SIZE / 2;
-  const foodY = game.food.y * CELL_SIZE + CELL_SIZE / 2;
+  const foodX = currentGame.food.x * CELL_SIZE + CELL_SIZE / 2;
+  const foodY = currentGame.food.y * CELL_SIZE + CELL_SIZE / 2;
   ctx.save();
   ctx.shadowBlur = 22;
   ctx.shadowColor = 'rgba(255, 158, 59, 0.75)';
@@ -132,9 +224,9 @@ function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null, you
   ctx.restore();
 
   (['p1', 'p2'] as PlayerId[]).forEach((playerId) => {
-    const player = game.players[playerId];
+    const segments = getRenderedSegments(previousFrame, currentFrame, playerId, interpolationAlpha);
     const colors = getMatchPlayerColors(playerId, yourSlot);
-    player.segments.forEach((segment, index) => {
+    segments.forEach((segment, index) => {
       const x = segment.x * CELL_SIZE;
       const y = segment.y * CELL_SIZE;
       const inset = index === 0 ? 2 : 4;
@@ -247,6 +339,11 @@ export default function App() {
   const inputSeqRef = useRef(0);
   const snapshotRef = useRef(snapshot);
   const resumeTokenRef = useRef<string | null>(window.localStorage.getItem(RESUME_TOKEN_KEY));
+  const prevFrameRef = useRef<RenderFrame | null>(null);
+  const currFrameRef = useRef<RenderFrame>(getRenderFrame(EMPTY_SNAPSHOT));
+  const snapshotReceivedAtRef = useRef(performance.now());
+  const snapshotIntervalRef = useRef(100);
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -316,6 +413,11 @@ export default function App() {
         const incoming = JSON.parse(String(event.data)) as ServerMessage;
 
         if (incoming.type === 'room_snapshot') {
+          const receivedAt = performance.now();
+          prevFrameRef.current = currFrameRef.current;
+          currFrameRef.current = getRenderFrame(incoming);
+          snapshotIntervalRef.current = Math.max(1, receivedAt - snapshotReceivedAtRef.current);
+          snapshotReceivedAtRef.current = receivedAt;
           resumeTokenRef.current = incoming.resumeToken;
           if (incoming.resumeToken) {
             window.localStorage.setItem(RESUME_TOKEN_KEY, incoming.resumeToken);
@@ -430,20 +532,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-
-    drawArena(context, snapshot.game, snapshot.yourSlot);
-  }, [snapshot]);
-
   const sendMessage = (message: ClientPayload) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) {
       return;
@@ -488,6 +576,46 @@ export default function App() {
   const p2MatchColors = getMatchPlayerColors('p2', snapshot.yourSlot);
   const p1LobbyColors = getLobbySlotColors('p1', snapshot.yourSlot);
   const p2LobbyColors = getLobbySlotColors('p2', snapshot.yourSlot);
+  const shouldAnimateArena = !showLobbyOverlay;
+
+  useEffect(() => {
+    if (!shouldAnimateArena) {
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    const render = () => {
+      const currentFrame = currFrameRef.current;
+      const previousFrame = prevFrameRef.current;
+      const interpolationAlpha = clamp01(
+        (performance.now() - snapshotReceivedAtRef.current) / snapshotIntervalRef.current,
+      );
+      drawArena(context, currentFrame, previousFrame, interpolationAlpha, snapshotRef.current.yourSlot);
+      rafIdRef.current = window.requestAnimationFrame(render);
+    };
+
+    rafIdRef.current = window.requestAnimationFrame(render);
+
+    return () => {
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, [shouldAnimateArena]);
 
   return (
     <main className="shell" data-phase={snapshot.phase}>
