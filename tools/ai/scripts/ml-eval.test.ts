@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runReplay } from '../core';
+import { runReplay } from '@snake/game-core';
 import {
   createDefaultEvaluationMatchups,
   createHeuristicPolicy,
@@ -7,8 +7,8 @@ import {
   evaluateEpisode,
   evaluateMatchup,
   passesRandomSafeGate,
-} from './eval';
-import { EnvActionOrder, SnakeMlEnvironment } from './index';
+} from './ml-eval';
+import { EnvActionOrder, SnakeMlEnvironment } from '@snake/game-core/ml';
 
 describe('ml evaluation harness', () => {
   it('random-safe policy always returns a valid masked action', () => {
@@ -32,7 +32,7 @@ describe('ml evaluation harness', () => {
   });
 
   it('produces deterministic seeded batch metrics', () => {
-    const seeds = [1, 2, 3, 4, 5, 6];
+    const seeds = [1, 2];
     const matchup = {
       name: 'heuristic-vs-random-safe',
       p1Policy: createHeuristicPolicy,

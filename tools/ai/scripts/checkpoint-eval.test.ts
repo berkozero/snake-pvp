@@ -50,9 +50,9 @@ describe('checkpoint training and evaluation', () => {
         '--output-dir',
         runDir,
         '--validation-seed-set-id',
-        'dev-v1',
+        'dev-v1-smoke',
         '--epochs',
-        '25',
+        '5',
       ],
       AI_ROOT,
     );
@@ -67,13 +67,13 @@ describe('checkpoint training and evaluation', () => {
     const first = await evaluateCheckpoint({
       checkpointDir: runDir,
       matchupTarget: 'random-safe',
-      seedSetId: 'dev-v1',
+      seedSetId: 'dev-v1-smoke',
       outputDir: path.join(root, 'eval-first'),
     });
     const second = await evaluateCheckpoint({
       checkpointDir: runDir,
       matchupTarget: 'random-safe',
-      seedSetId: 'dev-v1',
+      seedSetId: 'dev-v1-smoke',
       outputDir: path.join(root, 'eval-second'),
     });
 

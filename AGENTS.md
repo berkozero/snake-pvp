@@ -1,8 +1,8 @@
 # Repo Notes
 
 - This project has two deploy targets.
-- Railway hosts the authoritative Bun WebSocket server from `server/index.ts`.
-- Vercel hosts the static Vite/React frontend built from `src/`.
+- Railway hosts the authoritative Bun WebSocket server from `apps/server/src/index.ts`.
+- Vercel hosts the static Vite/React frontend built from `apps/web/src/`.
 - Keep production deploys minimal: Vercel should contain only the frontend, and Railway should contain only the Bun server plus the tiny inference asset/runtime.
 - Do not ship Python, training scripts, checkpoints, datasets, eval tooling, or other offline AI/training logic to Vercel or Railway.
 - Training is local-only: train/export models offline, then copy only the small exported inference bundle needed by the Railway server.

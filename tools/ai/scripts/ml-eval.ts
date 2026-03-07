@@ -1,5 +1,5 @@
-import { chooseHeuristicDirection, createSeededRandom } from '../core';
-import type { SimulatorSnapshot } from '../core';
+import { chooseHeuristicDirection, createSeededRandom, type PlayerId } from '@snake/game-core';
+import type { SimulatorSnapshot } from '@snake/game-core';
 import {
   EnvActionOrder,
   SnakeMlEnvironment,
@@ -7,8 +7,7 @@ import {
   type EnvAction,
   type EnvReplayArtifact,
   type EnvRewardBreakdown,
-} from './index';
-import type { PlayerId } from '../types';
+} from '@snake/game-core/ml';
 
 const PLAYER_IDS: PlayerId[] = ['p1', 'p2'];
 

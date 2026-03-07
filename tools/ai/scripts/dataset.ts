@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { createHeuristicPolicy } from '@snake/game-core/ml/eval';
+import { createHeuristicPolicy } from './ml-eval';
 import { EnvActionOrder, SnakeMlEnvironment, type EnvAction } from '@snake/game-core/ml';
 import type { PlayerId } from '@snake/game-core';
 import {

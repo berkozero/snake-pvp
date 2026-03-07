@@ -18,7 +18,7 @@ Workspace layout:
 
 Implemented pieces:
 
-- deterministic offline evaluation lives in `packages/game-core/src/ml/eval.ts`
+- deterministic offline evaluation lives in `scripts/ml-eval.ts`
 - the first trainer bridge now exists in `scripts/bridge.ts`
 - the bridge uses newline-delimited JSON over stdin/stdout
 - supported requests are `reset`, `step`, `get_observation`, `get_action_mask`, and `capture_replay`

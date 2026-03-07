@@ -205,7 +205,7 @@ describe('MainRoom', () => {
     expect(afterAdd?.type).toBe('room_snapshot');
     if (afterAdd?.type === 'room_snapshot') {
       expect(afterAdd.slots.p2.controller).toBe('ai');
-      expect(afterAdd.slots.p2.name).toBe('CPU');
+      expect(afterAdd.slots.p2.name).toBe('Pluribus');
     }
 
     send('s1', { type: 'set_ai_slot', requestId: 'c', slot: 'p2', enabled: false });
@@ -213,26 +213,45 @@ describe('MainRoom', () => {
     expect(room.slots.p2.controller).toBe('none');
   });
 
-  it('rejects AI slot changes unless the caller owns the opposite slot', () => {
+  it('lets a connected viewer add and remove AI slots before any human joins', () => {
     const { room, connect, send, latest } = createHarness({ aiPolicy: TEST_AI_POLICY });
 
     connect('viewer');
     send('viewer', { type: 'set_ai_slot', requestId: 'a', slot: 'p1', enabled: true });
-    const noOwner = latest('viewer');
-    expect(noOwner?.type).toBe('action_rejected');
-    if (noOwner?.type === 'action_rejected') {
-      expect(noOwner.reason).toBe('not_owner');
-    }
+    expect(room.slots.p1.controller).toBe('ai');
+    expect(room.slots.p1.name).toBe('Pluribus');
+
+    send('viewer', { type: 'set_ai_slot', requestId: 'b', slot: 'p1', enabled: false });
+    expect(room.slots.p1.controller).toBe('none');
+  });
+
+  it('rejects AI slot changes when a human tries to modify their own slot', () => {
+    const { room, connect, send, latest } = createHarness({ aiPolicy: TEST_AI_POLICY });
 
     connect('s1');
-    send('s1', { type: 'join_slot', requestId: 'b', slot: 'p1', name: 'Alpha' });
-    send('s1', { type: 'set_ai_slot', requestId: 'c', slot: 'p1', enabled: true });
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s1', { type: 'set_ai_slot', requestId: 'b', slot: 'p1', enabled: true });
     const sameSlot = latest('s1');
     expect(sameSlot?.type).toBe('action_rejected');
     if (sameSlot?.type === 'action_rejected') {
       expect(sameSlot.reason).toBe('invalid_phase');
     }
     expect(room.slots.p1.controller).toBe('human');
+  });
+
+  it('lets a connected viewer start a ready AI-only room', () => {
+    const { room, connect, send, advance } = createHarness({ aiPolicy: TEST_AI_POLICY });
+
+    connect('viewer');
+    send('viewer', { type: 'set_ai_slot', requestId: 'a', slot: 'p1', enabled: true });
+    send('viewer', { type: 'set_ai_slot', requestId: 'b', slot: 'p2', enabled: true });
+
+    expect(room.phase).toBe('ready');
+
+    send('viewer', { type: 'start_match', requestId: 'c' });
+    advance(2_400);
+
+    expect(room.phase).toBe('playing');
   });
 
   it('starts a human-vs-ai match and lets the bot submit server-side turns', () => {

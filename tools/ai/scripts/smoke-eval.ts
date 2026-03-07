@@ -1,4 +1,4 @@
-import { createDefaultEvaluationMatchups, evaluateMatchup, passesRandomSafeGate } from '@snake/game-core/ml/eval';
+import { createDefaultEvaluationMatchups, evaluateMatchup, passesRandomSafeGate } from './ml-eval';
 
 const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
 

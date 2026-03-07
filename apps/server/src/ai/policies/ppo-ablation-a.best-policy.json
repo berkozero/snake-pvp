@@ -2,7 +2,6 @@
   "schemaVersion": "rl-policy-v1",
   "metadata": {
     "runId": "ppo-ablation-a",
-    "createdAt": "2026-03-07T08:15:49.219654+00:00",
     "modelType": "mlp-44x32x32x5",
     "inputSize": 44,
     "hiddenSize": 32,
@@ -19,16 +18,7 @@
       "stay"
     ],
     "observationVersion": 2,
-    "trainDatasetId": "val-v1-large",
-    "supplementalDatasetId": "respawn-chase",
-    "supplementalWeight": 8.0,
-    "validationSeedSetId": "val-v1",
-    "gateSeedSetId": "dev-v1",
-    "trainerStack": "python-pytorch",
-    "sourceCheckpointDir": "/Users/berkozer/Documents/snake-pvp/worktrees/simulator-extraction/ai/artifacts/checkpoints/run-val-v1-large-h32x32-respawn8",
-    "checkpointOrigin": "rl-ppo",
-    "exportVersion": "rl-policy-v1",
-    "lastRlUpdate": 60
+    "exportVersion": "rl-policy-v1"
   },
   "inputMean": [
     16.52650260925293,

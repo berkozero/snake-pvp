@@ -329,10 +329,16 @@ function getSlotStatus(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
   if (!state.claimed) {
     return '';
   }
-  if (state.controller === 'ai') {
-    return 'AI Ready';
-  }
   return state.connected ? 'Connected' : 'Reserved';
+}
+
+function getSlotStatusColor(snapshot: RoomSnapshotMessage, slot: PlayerId, fallbackColor: string): string {
+  const state = snapshot.slots[slot];
+  if (state.claimed && state.connected) {
+    return '#7cff7a';
+  }
+
+  return fallbackColor;
 }
 
 function getPreviewRotation(direction: GameSnapshot['players'][PlayerId]['direction']): number {
@@ -386,7 +392,6 @@ function PlayerSlotCard({
           />
         ) : null}
       </div>
-      {controller === 'ai' ? <p className="slot-status-copy">Server-side PPO bot on Railway.</p> : null}
       {showPlayerClaims && !isOwner && controller !== 'ai' ? (
         <button
           data-testid={`claim-${slot}`}
@@ -695,8 +700,8 @@ export default function App() {
     (snapshot.phase === 'ready' && !isLockedViewer);
   const showPlayerClaims = !isLockedViewer;
   const canClaim = connected && snapshot.yourSlot === null;
-  const canStart = connected && snapshot.yourSlot !== null && snapshot.phase === 'ready';
-  const canManageAi = connected && snapshot.yourSlot !== null && (snapshot.phase === 'empty' || snapshot.phase === 'waiting' || snapshot.phase === 'ready');
+  const canStart = connected && snapshot.phase === 'ready';
+  const canManageAi = connected && (snapshot.phase === 'empty' || snapshot.phase === 'waiting' || snapshot.phase === 'ready');
   const heads = snapshot.game
     ? {
         p1: snapshot.game.players.p1.segments[0] ?? null,
@@ -938,14 +943,14 @@ export default function App() {
             slotName={getPlayerName(snapshot, 'p1')}
             slotStatus={getSlotStatus(snapshot, 'p1')}
             textColor={p1LobbyColors.text}
-            statusColor={p1LobbyColors.status}
+            statusColor={getSlotStatusColor(snapshot, 'p1', p1LobbyColors.status)}
             controller={snapshot.slots.p1.controller}
             claimed={snapshot.slots.p1.claimed}
             connected={snapshot.slots.p1.connected}
             inputValue={p1Name}
             canClaim={canClaim}
-            canAddAi={canManageAi && snapshot.yourSlot === 'p2' && !snapshot.slots.p1.claimed}
-            canRemoveAi={canManageAi && snapshot.yourSlot === 'p2' && snapshot.slots.p1.controller === 'ai'}
+            canAddAi={canManageAi && !snapshot.slots.p1.claimed}
+            canRemoveAi={canManageAi && snapshot.slots.p1.controller === 'ai'}
             showPlayerClaims={showPlayerClaims}
             isOwner={snapshot.yourSlot === 'p1'}
             onInputChange={setP1Name}
@@ -959,14 +964,14 @@ export default function App() {
             slotName={getPlayerName(snapshot, 'p2')}
             slotStatus={getSlotStatus(snapshot, 'p2')}
             textColor={p2LobbyColors.text}
-            statusColor={p2LobbyColors.status}
+            statusColor={getSlotStatusColor(snapshot, 'p2', p2LobbyColors.status)}
             controller={snapshot.slots.p2.controller}
             claimed={snapshot.slots.p2.claimed}
             connected={snapshot.slots.p2.connected}
             inputValue={p2Name}
             canClaim={canClaim}
-            canAddAi={canManageAi && snapshot.yourSlot === 'p1' && !snapshot.slots.p2.claimed}
-            canRemoveAi={canManageAi && snapshot.yourSlot === 'p1' && snapshot.slots.p2.controller === 'ai'}
+            canAddAi={canManageAi && !snapshot.slots.p2.claimed}
+            canRemoveAi={canManageAi && snapshot.slots.p2.controller === 'ai'}
             showPlayerClaims={showPlayerClaims}
             isOwner={snapshot.yourSlot === 'p2'}
             onInputChange={setP2Name}

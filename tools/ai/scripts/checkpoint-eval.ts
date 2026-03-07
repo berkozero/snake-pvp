@@ -3,7 +3,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHeuristicPolicy, createRandomSafePolicy, type EvaluationBatchResult, type EvaluationEpisodeResult } from '@snake/game-core/ml/eval';
+import { createHeuristicPolicy, createRandomSafePolicy, type EvaluationBatchResult, type EvaluationEpisodeResult } from './ml-eval';
 import { SnakeMlEnvironment, type EnvAction, type EnvReplayArtifact } from '@snake/game-core/ml';
 import type { PlayerId } from '@snake/game-core';
 import { getSeedSet, trainingActionOrder, trainingObservationLength, trainingObservationVersion } from './training-contract';

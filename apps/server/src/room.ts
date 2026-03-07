@@ -95,7 +95,7 @@ type RoomOptions = {
 };
 
 const SLOT_IDS: PlayerId[] = ['p1', 'p2'];
-const AI_PLAYER_NAME = 'CPU';
+const AI_PLAYER_NAME = 'Pluribus';
 
 function getOppositeSlot(slot: PlayerId): PlayerId {
   return slot === 'p1' ? 'p2' : 'p1';
@@ -621,17 +621,12 @@ export class MainRoom {
   }
 
   private handleSetAiSlot(session: SessionRecord, requestId: string, slot: PlayerId, enabled: boolean): void {
-    if (!session.slot) {
-      this.rejectAction(session, requestId, 'not_owner');
-      return;
-    }
-
     if (this.phase === 'countdown' || this.phase === 'playing' || this.phase === 'finished') {
       this.rejectAction(session, requestId, 'invalid_phase');
       return;
     }
 
-    if (session.slot === slot || getOppositeSlot(session.slot) !== slot) {
+    if (session.slot && (session.slot === slot || getOppositeSlot(session.slot) !== slot)) {
       this.rejectAction(session, requestId, 'invalid_phase');
       return;
     }
@@ -676,7 +671,7 @@ export class MainRoom {
   }
 
   private handleStart(session: SessionRecord, requestId: string): void {
-    if (!session.slot) {
+    if (!session.slot && !this.isViewerSession(session)) {
       this.rejectAction(session, requestId, 'not_owner');
       return;
     }
@@ -807,6 +802,10 @@ export class MainRoom {
       controller: 'none',
       reservedUntil: null,
     };
+  }
+
+  private isViewerSession(session: SessionRecord): boolean {
+    return session.slot === null && session.connected;
   }
 
   private markDisconnected(session: SessionRecord, reason: string): void {
