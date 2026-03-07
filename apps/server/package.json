@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@snake/game-core": "workspace:*"
+    "@snake/game-core": "file:../../packages/game-core"
   },
   "devDependencies": {
     "@types/bun": "^1.3.1",

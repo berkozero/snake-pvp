@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@snake/game-core": "workspace:*",
+    "@snake/game-core": "file:../../packages/game-core",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

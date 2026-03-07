@@ -56,10 +56,12 @@ bun run ai:gate
 
 ## Deploy Roots
 
-Set deploy roots to the app directories directly:
+Set deploy roots by platform:
 
 - Vercel root directory: `apps/web`
-- Railway root directory: `apps/server`
+- Railway root directory: repo root (`/`) or unset
+
+Railway should install and start from the repo root so Bun workspaces and `packages/game-core` are available. The expected start command is `bun run server`.
 
 Production frontend environment:
 

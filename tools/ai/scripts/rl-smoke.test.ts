@@ -7,13 +7,23 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { evaluateCheckpoint } from './checkpoint-eval';
 
 const cleanupPaths: string[] = [];
+const INIT_CHECKPOINT_METADATA = path.join(
+  process.cwd(),
+  'tools',
+  'ai',
+  '.local',
+  'artifacts',
+  'checkpoints',
+  'run-val-v1-large-h32x32-respawn8',
+  'metadata.json',
+);
 
 afterEach(async () => {
   await Promise.all(cleanupPaths.splice(0).map((target) => rm(target, { recursive: true, force: true })));
 });
 
 describe('rl smoke flow', () => {
-  it('completes the smoke command, emits artifacts, and evaluates via the unchanged ts path', async () => {
+  it.skipIf(!existsSync(INIT_CHECKPOINT_METADATA))('completes the smoke command, emits artifacts, and evaluates via the unchanged ts path', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'snake-rl-smoke-'));
     cleanupPaths.push(root);
     const proc = spawnSync('bun', ['run', 'ai:rl-selfplay-smoke'], {
