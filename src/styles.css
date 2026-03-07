@@ -8,7 +8,7 @@
   --text: #f2f2f5;
   --muted: #8f8f99;
   --bright: #7cff7a;
-  --accent: #ff9e3b;
+  --accent: #4fe06b;
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
   --font: "Space Mono", "Lucida Console", "Courier New", monospace;
   font-family: var(--font);
@@ -23,7 +23,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(111, 32, 24, 0.1), transparent 22%),
+    radial-gradient(circle at top, rgba(52, 122, 64, 0.14), transparent 22%),
     radial-gradient(circle at bottom right, rgba(26, 39, 91, 0.08), transparent 28%),
     linear-gradient(180deg, #0a090a 0%, #050506 24%, #020203 100%);
   color: var(--text);
@@ -62,17 +62,17 @@ button.secondary {
 }
 
 .start-button {
-  border-color: rgba(255, 184, 104, 0.6);
-  background: linear-gradient(180deg, rgba(255, 192, 112, 0.56), rgba(232, 114, 34, 0.68));
-  color: #fff7ec;
+  border-color: rgba(126, 255, 150, 0.62);
+  background: linear-gradient(180deg, rgba(114, 255, 142, 0.5), rgba(28, 146, 62, 0.72));
+  color: #f6fff7;
   box-shadow:
-    inset 0 1px 0 rgba(255, 242, 224, 0.22),
-    0 0 0 1px rgba(255, 158, 59, 0.18);
+    inset 0 1px 0 rgba(234, 255, 238, 0.22),
+    0 0 0 1px rgba(79, 224, 107, 0.22);
 }
 
 .start-button:hover {
-  background: linear-gradient(180deg, rgba(255, 204, 132, 0.66), rgba(245, 124, 36, 0.76));
-  border-color: rgba(255, 205, 142, 0.74);
+  background: linear-gradient(180deg, rgba(140, 255, 165, 0.6), rgba(33, 164, 71, 0.8));
+  border-color: rgba(170, 255, 188, 0.76);
 }
 
 .shell {
@@ -598,8 +598,8 @@ button.secondary {
 }
 
 .name-field input:focus {
-  outline: 1px solid rgba(255, 158, 59, 0.55);
-  border-color: rgba(255, 158, 59, 0.55);
+  outline: 1px solid rgba(79, 224, 107, 0.55);
+  border-color: rgba(79, 224, 107, 0.55);
 }
 
 .players-grid {
@@ -674,8 +674,8 @@ button.secondary {
 }
 
 .slot-input:focus {
-  outline: 1px solid rgba(255, 158, 59, 0.55);
-  border-color: rgba(255, 158, 59, 0.55);
+  outline: 1px solid rgba(79, 224, 107, 0.55);
+  border-color: rgba(79, 224, 107, 0.55);
 }
 
 .footer-card {
