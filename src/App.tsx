@@ -16,6 +16,7 @@ import {
 } from './net/protocol';
 import SnakeWordmark from './SnakeWordmark';
 import { getGameServerUrl } from './config';
+import { getLobbySlotColors, getMatchPlayerColors } from './playerColors';
 
 type ClientPayload = ClientMessage extends infer T
   ? T extends ClientMessage
@@ -50,11 +51,6 @@ const DIRECTION_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   ArrowDown: 'down',
   ArrowRight: 'right',
 };
-const PLAYER_COLORS: Record<PlayerId, { fill: string; glow: string }> = {
-  p1: { fill: '#7cff7a', glow: 'rgba(124, 255, 122, 0.24)' },
-  p2: { fill: '#56a8ff', glow: 'rgba(86, 168, 255, 0.28)' },
-};
-
 declare global {
   interface Window {
     __SNAKE_PVP_STATE__?: RoomSnapshotMessage;
@@ -68,7 +64,7 @@ function nextRequestId(): string {
   return `req_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null): void {
+function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null, yourSlot: PlayerId | null): void {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   const grid = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -137,7 +133,7 @@ function drawArena(ctx: CanvasRenderingContext2D, game: GameSnapshot | null): vo
 
   (['p1', 'p2'] as PlayerId[]).forEach((playerId) => {
     const player = game.players[playerId];
-    const colors = PLAYER_COLORS[playerId];
+    const colors = getMatchPlayerColors(playerId, yourSlot);
     player.segments.forEach((segment, index) => {
       const x = segment.x * CELL_SIZE;
       const y = segment.y * CELL_SIZE;
@@ -445,7 +441,7 @@ export default function App() {
       return;
     }
 
-    drawArena(context, snapshot.game);
+    drawArena(context, snapshot.game, snapshot.yourSlot);
   }, [snapshot]);
 
   const sendMessage = (message: ClientPayload) => {
@@ -488,6 +484,10 @@ export default function App() {
         p2: snapshot.game.players.p2.segments[0] ?? null,
       }
     : { p1: null, p2: null };
+  const p1MatchColors = getMatchPlayerColors('p1', snapshot.yourSlot);
+  const p2MatchColors = getMatchPlayerColors('p2', snapshot.yourSlot);
+  const p1LobbyColors = getLobbySlotColors('p1', snapshot.yourSlot);
+  const p2LobbyColors = getLobbySlotColors('p2', snapshot.yourSlot);
 
   return (
     <main className="shell" data-phase={snapshot.phase}>
@@ -506,16 +506,16 @@ export default function App() {
               <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
             </div>
             <div data-testid="p1-score-card">
-              <span>{getPlayerName(snapshot, 'p1')}</span>
-              <strong data-testid="p1-score">
+              <span style={{ color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span>
+              <strong data-testid="p1-score" style={{ color: p1MatchColors.text }}>
                 {snapshot.game?.players.p1.respawnRemainingMs
                   ? `Respawn ${Math.ceil(snapshot.game.players.p1.respawnRemainingMs / 1000)}`
                   : snapshot.game?.players.p1.score ?? 0}
               </strong>
             </div>
             <div data-testid="p2-score-card">
-              <span>{getPlayerName(snapshot, 'p2')}</span>
-              <strong data-testid="p2-score">
+              <span style={{ color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span>
+              <strong data-testid="p2-score" style={{ color: p2MatchColors.text }}>
                 {snapshot.game?.players.p2.respawnRemainingMs
                   ? `Respawn ${Math.ceil(snapshot.game.players.p2.respawnRemainingMs / 1000)}`
                   : snapshot.game?.players.p2.score ?? 0}
@@ -557,7 +557,7 @@ export default function App() {
                   return null;
                 }
 
-                const colors = PLAYER_COLORS[playerId];
+                const colors = getMatchPlayerColors(playerId, snapshot.yourSlot);
                 return (
                   <div
                     key={playerId}
@@ -602,8 +602,8 @@ export default function App() {
             <p className="eyebrow">{snapshot.result?.reason === 'forfeit' ? 'Forfeit' : 'Time Up'}</p>
             <h2 data-testid="winner-label">{getWinnerLabel(snapshot.result, snapshot)}</h2>
             <div className="controls-grid score-grid">
-              <p><span>{getPlayerName(snapshot, 'p1')}</span> {snapshot.game?.players.p1.score ?? 0}</p>
-              <p><span>{getPlayerName(snapshot, 'p2')}</span> {snapshot.game?.players.p2.score ?? 0}</p>
+              <p style={{ color: p1MatchColors.text }}><span style={{ color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span> {snapshot.game?.players.p1.score ?? 0}</p>
+              <p style={{ color: p2MatchColors.text }}><span style={{ color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span> {snapshot.game?.players.p2.score ?? 0}</p>
               <p><span>P1 Head</span> {cellOrDash(heads.p1)}</p>
               <p><span>P2 Head</span> {cellOrDash(heads.p2)}</p>
             </div>
@@ -624,10 +624,10 @@ export default function App() {
           <strong>Claim your side</strong>
         </div>
         <div className="players-grid">
-          <article className="player-slot-card p1-slot" data-testid="slot-p1">
+          <article className="player-slot-card" data-testid="slot-p1">
             <div className="slot-row">
-              <strong>{getPlayerName(snapshot, 'p1')}</strong>
-              <span>{getSlotStatus(snapshot, 'p1')}</span>
+              <strong style={{ color: p1LobbyColors.text }}>{getPlayerName(snapshot, 'p1')}</strong>
+              <span style={{ color: p1LobbyColors.status }}>{getSlotStatus(snapshot, 'p1')}</span>
               {!snapshot.slots.p1.claimed ? (
                 <input
                   className="slot-input"
@@ -664,10 +664,10 @@ export default function App() {
               </button>
             ) : null}
           </article>
-          <article className="player-slot-card alt" data-testid="slot-p2">
+          <article className="player-slot-card" data-testid="slot-p2">
             <div className="slot-row">
-              <strong>{getPlayerName(snapshot, 'p2')}</strong>
-              <span>{getSlotStatus(snapshot, 'p2')}</span>
+              <strong style={{ color: p2LobbyColors.text }}>{getPlayerName(snapshot, 'p2')}</strong>
+              <span style={{ color: p2LobbyColors.status }}>{getSlotStatus(snapshot, 'p2')}</span>
               {!snapshot.slots.p2.claimed ? (
                 <input
                   className="slot-input"
