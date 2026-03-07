@@ -343,12 +343,14 @@ export class MainRoom {
       serverTime: this.now(),
       phase: this.phase,
       tickSeq: this.tickSeq,
+      lastProcessedInputSeq: session?.slot ? session.lastAcceptedInputSeq : null,
       yourSlot: session?.slot ?? null,
       resumeToken: session?.slot ? session.resumeToken : null,
       slots,
       game: this.game
         ? {
             board: { width: BOARD_WIDTH, height: BOARD_HEIGHT },
+            tickMs: this.game.tickMs,
             countdownMs: this.game.countdownMs,
             remainingMs: this.game.remainingMs,
             food: { ...this.game.food },

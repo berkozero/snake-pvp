@@ -276,6 +276,14 @@ describe('MainRoom', () => {
     if (rejection?.type === 'action_rejected') {
       expect(['invalid_direction', 'stale_input']).toContain(rejection.reason);
     }
+
+    room.tick();
+    const postTickSnapshot = latest('s1');
+    expect(postTickSnapshot?.type).toBe('room_snapshot');
+    if (postTickSnapshot?.type === 'room_snapshot') {
+      expect(postTickSnapshot.lastProcessedInputSeq).toBe(2);
+      expect(postTickSnapshot.game?.tickMs).toBe(100);
+    }
   });
 
   it('includes the same respawn preview in snapshots for both clients during the death window', () => {
