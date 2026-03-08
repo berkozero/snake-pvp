@@ -615,6 +615,7 @@ export function GameplayHud({
         </div>
         <div data-testid="timer-card" className="match-timer-card">
           <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
+          <span className="hud-timer-label">Clock</span>
         </div>
         <div
           data-testid="p2-score-card"

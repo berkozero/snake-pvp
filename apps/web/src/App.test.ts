@@ -285,6 +285,7 @@ describe('viewer watch mode', () => {
     expect(markup).toContain('data-testid="timer-card"');
     expect(markup).toContain('data-testid="p1-score-card"');
     expect(markup).toContain('data-testid="p2-score-card"');
+    expect(markup).toContain('Clock');
     expect(markup).not.toContain('Player One');
     expect(markup).not.toContain('Player Two');
     expect(markup).not.toContain('Round Timer');

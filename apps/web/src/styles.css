@@ -130,6 +130,18 @@ button.danger:hover {
   align-items: center;
 }
 
+.shell[data-phase='countdown'],
+.shell[data-phase='playing'] {
+  gap: 10px;
+}
+
+.shell[data-phase='countdown'] .hud-card,
+.shell[data-phase='playing'] .hud-card {
+  gap: 14px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
 .hud-brand {
   min-width: 0;
   width: 100%;
@@ -138,7 +150,7 @@ button.danger:hover {
 }
 
 .hud-wordmark {
-  width: clamp(220px, 28vw, 340px);
+  width: clamp(180px, 21vw, 270px);
   height: auto;
   display: block;
 }
@@ -153,9 +165,14 @@ button.danger:hover {
   width: 100%;
 }
 
+.shell[data-phase='countdown'] .status-row,
+.shell[data-phase='playing'] .status-row {
+  gap: 12px;
+}
+
 .status-row div {
   min-width: 110px;
-  padding: 18px 18px 16px;
+  padding: 14px 18px 12px;
   border: 1px solid rgba(214, 214, 222, 0.18);
   background:
     linear-gradient(180deg, rgba(18, 18, 24, 0.98), rgba(7, 7, 10, 0.99)),
@@ -166,6 +183,12 @@ button.danger:hover {
     inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   position: relative;
   overflow: hidden;
+}
+
+.shell[data-phase='countdown'] .status-row div,
+.shell[data-phase='playing'] .status-row div {
+  padding-top: 10px;
+  padding-bottom: 8px;
 }
 
 .status-row div::before {
@@ -194,13 +217,20 @@ button.danger:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 176px;
+  min-height: 148px;
   text-align: center;
   --slot-accent: rgba(255, 255, 255, 0.4);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     inset 0 0 0 1px rgba(255, 255, 255, 0.02),
     0 0 0 1px color-mix(in srgb, var(--slot-accent) 12%, transparent);
+}
+
+.shell[data-phase='countdown'] .match-slot-card,
+.shell[data-phase='countdown'] .match-timer-card,
+.shell[data-phase='playing'] .match-slot-card,
+.shell[data-phase='playing'] .match-timer-card {
+  min-height: 128px;
 }
 
 .match-slot-card.is-resignable {
@@ -261,9 +291,10 @@ button.danger:hover {
 
 .match-timer-card {
   flex: 1.15 1 0;
-  min-height: 176px;
+  min-height: 148px;
   display: flex;
   flex-direction: column;
+  gap: 0.68rem;
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -295,11 +326,23 @@ button.danger:hover {
 }
 
 [data-testid='timer-value'] {
-  font-size: clamp(2.7rem, 5.8vw, 4.2rem);
-  line-height: 0.92;
-  letter-spacing: 0.04em;
+  font-size: clamp(2.05rem, 3.35vw, 2.9rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+  font-weight: 700;
   text-shadow: 0 0 18px rgba(124, 255, 122, 0.08);
+}
+
+.hud-timer-label {
+  color: rgba(242, 242, 245, 0.62);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-family: var(--font);
+  line-height: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .match-slot-card::after {
@@ -380,15 +423,20 @@ button.danger:hover {
 
 .arena-card {
   position: relative;
-  padding: 34px 10px 10px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(10, 10, 14, 0.99), rgba(3, 3, 5, 1)),
-    var(--panel-strong);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.arena-card::before {
+  display: none;
 }
 
 .arena-stage {
   position: relative;
+  line-height: 0;
 }
 
 .arena {
@@ -1014,6 +1062,11 @@ button.danger:hover {
     gap: 6px;
   }
 
+  .shell[data-phase='countdown'],
+  .shell[data-phase='playing'] {
+    gap: 4px;
+  }
+
   .menu-hero {
     padding: 0 4px;
   }
@@ -1042,11 +1095,22 @@ button.danger:hover {
     width: 100%;
   }
 
+  .shell[data-phase='countdown'] .status-row,
+  .shell[data-phase='playing'] .status-row {
+    gap: 5px;
+  }
+
   .status-row div {
     min-width: 0;
     min-height: 0;
     padding: 12px 10px 10px;
     border-color: rgba(196, 196, 205, 0.1);
+  }
+
+  .shell[data-phase='countdown'] .status-row div,
+  .shell[data-phase='playing'] .status-row div {
+    padding-top: 9px;
+    padding-bottom: 7px;
   }
 
   .status-row strong {
@@ -1067,12 +1131,24 @@ button.danger:hover {
   }
 
   [data-testid='timer-value'] {
-    font-size: 2rem;
+    font-size: 1.56rem;
+  }
+
+  .hud-timer-label {
+    font-size: 0.54rem;
+    letter-spacing: 0.16em;
   }
 
   .match-slot-card,
   .match-timer-card {
-    min-height: 132px;
+    min-height: 114px;
+  }
+
+  .shell[data-phase='countdown'] .match-slot-card,
+  .shell[data-phase='countdown'] .match-timer-card,
+  .shell[data-phase='playing'] .match-slot-card,
+  .shell[data-phase='playing'] .match-timer-card {
+    min-height: 102px;
   }
 
   .player-slot-card .slot-name {
