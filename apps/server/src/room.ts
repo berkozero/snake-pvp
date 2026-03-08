@@ -95,7 +95,7 @@ type RoomOptions = {
 };
 
 const SLOT_IDS: PlayerId[] = ['p1', 'p2'];
-const AI_PLAYER_NAME = 'Pluribus';
+const AI_PLAYER_NAME = 'AI';
 
 function getOppositeSlot(slot: PlayerId): PlayerId {
   return slot === 'p1' ? 'p2' : 'p1';
@@ -322,6 +322,9 @@ export class MainRoom {
       case 'set_ai_slot':
         this.handleSetAiSlot(session, message.requestId, message.slot, message.enabled);
         return;
+      case 'resign_match':
+        this.handleResign(session, message.requestId, message.slot);
+        return;
     }
   }
 
@@ -391,15 +394,8 @@ export class MainRoom {
         }
 
         if (this.game.phase === 'finished') {
-          this.phase = 'finished';
-          this.result = {
-            winner: this.game.winner ?? 'draw',
-            reason: 'timeout',
-            forfeitSlot: null,
-          };
-          this.finishAt = now + this.finishDwellMs;
-          this.movementAccumulatorMs = 0;
-          this.log('timeout_finish', { roundId: this.roundId, winner: this.result.winner });
+          this.finishMatch(this.game.winner ?? 'draw', 'timeout');
+          this.log('timeout_finish', { roundId: this.roundId, winner: this.result?.winner ?? 'draw' });
         }
       }
 
@@ -743,6 +739,36 @@ export class MainRoom {
     session.pendingDirection = direction;
   }
 
+  private handleResign(session: SessionRecord, requestId: string, slot: PlayerId): void {
+    if (!this.game || (this.phase !== 'countdown' && this.phase !== 'playing')) {
+      this.rejectAction(session, requestId, 'invalid_phase');
+      return;
+    }
+
+    if (slot !== 'p1' && slot !== 'p2') {
+      this.rejectAction(session, requestId, 'invalid_phase');
+      return;
+    }
+
+    const aiOnlyMatch = SLOT_IDS.every((slotId) => this.slots[slotId].controller === 'ai');
+    if (aiOnlyMatch) {
+      if (!this.isViewerSession(session) || !isAiControlledSlot(this.slots[slot])) {
+        this.rejectAction(session, requestId, 'not_owner');
+        return;
+      }
+    } else {
+      if (!session.slot || session.slot !== slot || !isHumanControlledSlot(this.slots[slot])) {
+        this.rejectAction(session, requestId, 'not_owner');
+        return;
+      }
+    }
+
+    const winner = getOppositeSlot(slot);
+    this.finishMatch(winner, 'resign');
+    this.log('resign', { roundId: this.roundId, resignSlot: slot, winner, requestedBy: session.sessionId });
+    this.broadcastSnapshot();
+  }
+
   private syncSessionPendingDirections(): void {
     if (!this.game) {
       return;
@@ -872,14 +898,7 @@ export class MainRoom {
 
     if (this.phase === 'playing') {
       const winner = slot === 'p1' ? 'p2' : 'p1';
-      this.phase = 'finished';
-      this.result = {
-        winner,
-        reason: 'forfeit',
-        forfeitSlot: slot,
-      };
-      this.finishAt = this.now() + this.finishDwellMs;
-      this.movementAccumulatorMs = 0;
+      this.finishMatch(winner, 'forfeit', slot);
       this.log('forfeit', { roundId: this.roundId, forfeitSlot: slot, winner });
       this.cleanupDisconnectedSessions();
       this.broadcastSnapshot();
@@ -1003,6 +1022,25 @@ export class MainRoom {
       if (!session.connected && session.slot === null) {
         this.sessions.delete(socketId);
       }
+    }
+  }
+
+  private finishMatch(winner: ResultSnapshot['winner'], reason: ResultReason, forfeitSlot: PlayerId | null = null): void {
+    this.phase = 'finished';
+    this.result = {
+      winner,
+      reason,
+      forfeitSlot,
+    };
+    this.finishAt = this.now() + this.finishDwellMs;
+    this.movementAccumulatorMs = 0;
+
+    if (this.game) {
+      this.game = {
+        ...this.game,
+        phase: 'finished',
+        winner: winner === 'draw' ? 'draw' : winner,
+      };
     }
   }
 

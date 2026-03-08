@@ -205,7 +205,7 @@ describe('MainRoom', () => {
     expect(afterAdd?.type).toBe('room_snapshot');
     if (afterAdd?.type === 'room_snapshot') {
       expect(afterAdd.slots.p2.controller).toBe('ai');
-      expect(afterAdd.slots.p2.name).toBe('Pluribus');
+      expect(afterAdd.slots.p2.name).toBe('AI');
     }
 
     send('s1', { type: 'set_ai_slot', requestId: 'c', slot: 'p2', enabled: false });
@@ -219,7 +219,7 @@ describe('MainRoom', () => {
     connect('viewer');
     send('viewer', { type: 'set_ai_slot', requestId: 'a', slot: 'p1', enabled: true });
     expect(room.slots.p1.controller).toBe('ai');
-    expect(room.slots.p1.name).toBe('Pluribus');
+    expect(room.slots.p1.name).toBe('AI');
 
     send('viewer', { type: 'set_ai_slot', requestId: 'b', slot: 'p1', enabled: false });
     expect(room.slots.p1.controller).toBe('none');
@@ -269,6 +269,143 @@ describe('MainRoom', () => {
     advance(100);
     expect(room.game?.players.p2.direction).toBe('up');
     expect(room.game?.players.p2.segments[0]).toEqual({ x: 27, y: 11 });
+  });
+
+  it('lets a human resign their own slot during countdown', () => {
+    const { room, connect, send } = createHarness();
+
+    connect('s1');
+    connect('s2');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'b', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    expect(room.phase).toBe('countdown');
+    send('s1', { type: 'resign_match', requestId: 'd', slot: 'p1' });
+
+    expect(room.phase).toBe('finished');
+    expect(room.result).toEqual({
+      winner: 'p2',
+      reason: 'resign',
+      forfeitSlot: null,
+    });
+    expect(room.game?.phase).toBe('finished');
+    expect(room.game?.winner).toBe('p2');
+  });
+
+  it('lets a human resign their own slot during active play', () => {
+    const { room, connect, send } = createHarness();
+
+    connect('s1');
+    connect('s2');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'b', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    if (room.game) {
+      room.game = { ...room.game, phase: 'playing', countdownMs: 0 };
+      room.phase = 'playing';
+    }
+
+    send('s2', { type: 'resign_match', requestId: 'd', slot: 'p2' });
+
+    expect(room.phase).toBe('finished');
+    expect(room.result).toEqual({
+      winner: 'p1',
+      reason: 'resign',
+      forfeitSlot: null,
+    });
+  });
+
+  it('rejects resigning the opponent human slot', () => {
+    const { room, connect, send, latest } = createHarness();
+
+    connect('s1');
+    connect('s2');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'b', slot: 'p2', name: 'Bravo' });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    send('s1', { type: 'resign_match', requestId: 'd', slot: 'p2' });
+
+    expect(room.phase).toBe('countdown');
+    const rejection = latest('s1');
+    expect(rejection?.type).toBe('action_rejected');
+    if (rejection?.type === 'action_rejected') {
+      expect(rejection.reason).toBe('not_owner');
+    }
+  });
+
+  it('rejects viewer resign attempts in human-involved matches', () => {
+    const { room, connect, send, latest } = createHarness({ aiPolicy: TEST_AI_POLICY });
+
+    connect('viewer');
+    connect('s1');
+    send('s1', { type: 'join_slot', requestId: 'a', slot: 'p1', name: 'Alpha' });
+    send('s1', { type: 'set_ai_slot', requestId: 'b', slot: 'p2', enabled: true });
+    send('s1', { type: 'start_match', requestId: 'c' });
+
+    send('viewer', { type: 'resign_match', requestId: 'd', slot: 'p2' });
+
+    expect(room.phase).toBe('countdown');
+    const rejection = latest('viewer');
+    expect(rejection?.type).toBe('action_rejected');
+    if (rejection?.type === 'action_rejected') {
+      expect(rejection.reason).toBe('not_owner');
+    }
+  });
+
+  it('lets a viewer resign either side in an AI-only match', () => {
+    const { room, connect, send } = createHarness({ aiPolicy: TEST_AI_POLICY });
+
+    connect('viewer');
+    send('viewer', { type: 'set_ai_slot', requestId: 'a', slot: 'p1', enabled: true });
+    send('viewer', { type: 'set_ai_slot', requestId: 'b', slot: 'p2', enabled: true });
+    send('viewer', { type: 'start_match', requestId: 'c' });
+
+    send('viewer', { type: 'resign_match', requestId: 'd', slot: 'p1' });
+
+    expect(room.phase).toBe('finished');
+    expect(room.result).toEqual({
+      winner: 'p2',
+      reason: 'resign',
+      forfeitSlot: null,
+    });
+  });
+
+  it('rejects resign outside countdown and play', () => {
+    const { room, connect, send, latest } = createHarness();
+
+    connect('s1');
+    connect('s2');
+
+    send('s1', { type: 'resign_match', requestId: 'a', slot: 'p1' });
+    expect(latest('s1')?.type).toBe('action_rejected');
+    if (latest('s1')?.type === 'action_rejected') {
+      expect(latest('s1')?.reason).toBe('invalid_phase');
+    }
+
+    send('s1', { type: 'join_slot', requestId: 'b', slot: 'p1', name: 'Alpha' });
+    send('s2', { type: 'join_slot', requestId: 'c', slot: 'p2', name: 'Bravo' });
+    expect(room.phase).toBe('ready');
+    send('s1', { type: 'resign_match', requestId: 'd', slot: 'p1' });
+    expect(room.phase).toBe('ready');
+
+    send('s1', { type: 'start_match', requestId: 'e' });
+    if (room.game) {
+      room.game = { ...room.game, phase: 'playing', countdownMs: 0 };
+      room.phase = 'playing';
+    }
+    send('s1', { type: 'resign_match', requestId: 'f', slot: 'p1' });
+    expect(room.phase).toBe('finished');
+
+    send('s2', { type: 'resign_match', requestId: 'g', slot: 'p2' });
+    expect(room.phase).toBe('finished');
+    const rejection = latest('s2');
+    expect(rejection?.type).toBe('action_rejected');
+    if (rejection?.type === 'action_rejected') {
+      expect(rejection.reason).toBe('invalid_phase');
+    }
   });
 
   it('keeps roundId stable through finish and resets it after dwell', () => {

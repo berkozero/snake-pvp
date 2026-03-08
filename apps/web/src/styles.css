@@ -61,6 +61,16 @@ button.secondary {
   background: linear-gradient(180deg, rgba(18, 18, 22, 0.9), rgba(10, 10, 14, 0.96));
 }
 
+button.danger {
+  border-color: rgba(255, 120, 120, 0.5);
+  background: linear-gradient(180deg, rgba(128, 32, 32, 0.96), rgba(78, 14, 14, 0.98));
+}
+
+button.danger:hover {
+  background: linear-gradient(180deg, rgba(150, 38, 38, 0.98), rgba(92, 18, 18, 1));
+  border-color: rgba(255, 168, 168, 0.68);
+}
+
 .start-button {
   border-color: rgba(126, 255, 150, 0.62);
   background: linear-gradient(180deg, rgba(114, 255, 142, 0.5), rgba(28, 146, 62, 0.72));
@@ -129,6 +139,7 @@ button.secondary {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .status-row div {
@@ -142,10 +153,57 @@ button.secondary {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
+.match-slot-card {
+  position: relative;
+  flex: 1 1 180px;
+}
+
+.match-slot-card.is-resignable {
+  border-color: rgba(255, 199, 128, 0.2);
+}
+
+.hud-player-name,
+.hud-name-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transform: none;
+  color: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font);
+}
+
+.hud-name-button:hover {
+  transform: none;
+  background: transparent;
+  border-color: transparent;
+  color: #ffd58e;
+}
+
+.hud-name-confirm {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hud-name-confirm button {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+
 [data-testid='p1-score-card'],
 [data-testid='p2-score-card'] {
-  width: 150px;
-  min-width: 150px;
+  width: 180px;
+  min-width: 180px;
 }
 
 .status-row span {
@@ -751,6 +809,11 @@ button.secondary {
   letter-spacing: 0;
 }
 
+.player-slot-card .slot-name {
+  font-size: 1.3rem;
+  letter-spacing: 0.02em;
+}
+
 .player-slot-card small {
   display: block;
   color: var(--muted);
@@ -766,6 +829,13 @@ button.secondary {
 
 .slot-row strong {
   flex-shrink: 0;
+}
+
+.score-grid .result-player-name {
+  display: inline-block;
+  margin-right: 10px;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
 }
 
 .slot-status-copy {
@@ -829,6 +899,10 @@ button.secondary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .status-row [data-testid='timer-card'] {
+    grid-column: 1 / -1;
+  }
+
   [data-testid='p1-score-card'],
   [data-testid='p2-score-card'] {
     width: auto;
@@ -888,13 +962,12 @@ button.secondary {
     display: none;
   }
 
-  .hud-brand,
-  [data-testid='connection-card'] {
+  .hud-brand {
     display: none;
   }
 
   .status-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     width: 100%;
   }
@@ -921,6 +994,33 @@ button.secondary {
   [data-testid='p2-score'] {
     font-size: 0.74rem;
     line-height: 1.1;
+  }
+
+  .hud-player-name,
+  .hud-name-button {
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+
+  .player-slot-card .slot-name {
+    font-size: 1.15rem;
+  }
+
+  .score-grid .result-player-name {
+    font-size: 0.92rem;
+  }
+
+  .hud-name-confirm {
+    margin-top: 6px;
+    gap: 4px;
+  }
+
+  .hud-name-confirm button {
+    flex: 1 1 calc(50% - 2px);
+    min-height: 26px;
+    padding: 0.35rem 0.3rem;
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
   }
 
   .how-to-play {

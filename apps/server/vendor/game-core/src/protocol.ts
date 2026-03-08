@@ -4,7 +4,7 @@ export const PROTOCOL_VERSION = 1;
 export const ROOM_ID = 'main';
 
 export type RoomPhase = 'empty' | 'waiting' | 'ready' | 'countdown' | 'playing' | 'finished';
-export type ResultReason = 'timeout' | 'forfeit';
+export type ResultReason = 'timeout' | 'forfeit' | 'resign';
 export type SlotController = 'none' | 'human' | 'ai';
 export type JoinRejectedReason =
   | 'slot_taken'
@@ -97,6 +97,12 @@ export type SetAiSlotMessage = EnvelopeBase & {
   enabled: boolean;
 };
 
+export type ResignMatchMessage = EnvelopeBase & {
+  type: 'resign_match';
+  requestId: string;
+  slot: PlayerId;
+};
+
 export type ClientMessage =
   | JoinSlotMessage
   | LeaveSlotMessage
@@ -104,7 +110,8 @@ export type ClientMessage =
   | ResumeSessionMessage
   | InputDirectionMessage
   | PingMessage
-  | SetAiSlotMessage;
+  | SetAiSlotMessage
+  | ResignMatchMessage;
 
 export type RoomSnapshotMessage = EnvelopeBase & {
   type: 'room_snapshot';

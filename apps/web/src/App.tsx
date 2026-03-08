@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE, formatTime, type Cell, type Direction, type PlayerId } from '@snake/game-core';
 import {
   PROTOCOL_VERSION,
@@ -44,6 +44,8 @@ type ViewerUiState = {
   canStart: boolean;
 };
 
+type ResignableSlots = Record<PlayerId, boolean>;
+
 type PlayerSlotCardProps = {
   slot: PlayerId;
   slotName: string;
@@ -64,6 +66,16 @@ type PlayerSlotCardProps = {
   onLeave: () => void;
   onAddAi: () => void;
   onRemoveAi: () => void;
+};
+
+const HUD_NAME_STYLE: CSSProperties = {
+  fontSize: '0.9rem',
+  lineHeight: 1.1,
+};
+
+const LOBBY_NAME_STYLE: CSSProperties = {
+  fontSize: '1.3rem',
+  lineHeight: 1.05,
 };
 
 const CANVAS_WIDTH = BOARD_WIDTH * CELL_SIZE;
@@ -277,7 +289,7 @@ function drawArena(
 
 }
 
-function getWinnerLabel(result: ResultSnapshot | null, snapshot: RoomSnapshotMessage): string {
+export function getWinnerLabel(result: ResultSnapshot | null, snapshot: RoomSnapshotMessage): string {
   if (!result) {
     return 'Match Over';
   }
@@ -287,11 +299,49 @@ function getWinnerLabel(result: ResultSnapshot | null, snapshot: RoomSnapshotMes
   }
 
   const winnerName = snapshot.slots[result.winner].name ?? result.winner.toUpperCase();
+  if (result.reason === 'resign') {
+    return `${winnerName} Wins by Resignation`;
+  }
   if (result.reason === 'forfeit') {
     return `${winnerName} Wins by Forfeit`;
   }
 
   return `${winnerName} Wins`;
+}
+
+export function getResultEyebrow(result: ResultSnapshot | null): string {
+  if (!result) {
+    return 'Match Over';
+  }
+  if (result.reason === 'resign') {
+    return 'Resignation';
+  }
+  if (result.reason === 'forfeit') {
+    return 'Forfeit';
+  }
+  return 'Time Up';
+}
+
+export function getResignableSlots(snapshot: RoomSnapshotMessage, connected: boolean): ResignableSlots {
+  if (!connected || (snapshot.phase !== 'countdown' && snapshot.phase !== 'playing')) {
+    return { p1: false, p2: false };
+  }
+
+  const isAiOnlyRoom =
+    snapshot.slots.p1.controller === 'ai' &&
+    snapshot.slots.p2.controller === 'ai';
+  if (isAiOnlyRoom && snapshot.yourSlot === null) {
+    return { p1: true, p2: true };
+  }
+
+  if (snapshot.yourSlot && snapshot.slots[snapshot.yourSlot].controller === 'human') {
+    return {
+      p1: snapshot.yourSlot === 'p1',
+      p2: snapshot.yourSlot === 'p2',
+    };
+  }
+
+  return { p1: false, p2: false };
 }
 
 export function getViewerUiState(snapshot: RoomSnapshotMessage, connected: boolean): ViewerUiState {
@@ -429,7 +479,7 @@ function PlayerSlotCard({
   return (
     <article className="player-slot-card" data-testid={`slot-${slot}`}>
       <div className="slot-row">
-        <strong style={{ color: textColor }}>{slotName}</strong>
+        <strong className="slot-name" style={{ ...LOBBY_NAME_STYLE, color: textColor }}>{slotName}</strong>
         <span style={{ color: statusColor }}>{slotStatus}</span>
         {!claimed ? (
           <input
@@ -496,6 +546,7 @@ export default function App() {
   const [message, setMessage] = useState('Connect to the server to claim a slot.');
   const [connected, setConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [pendingResignSlot, setPendingResignSlot] = useState<PlayerId | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -727,6 +778,11 @@ export default function App() {
     sendMessage({ type: 'set_ai_slot', requestId: nextRequestId(), slot, enabled });
   };
 
+  const sendResignMatch = (slot: PlayerId) => {
+    setPendingResignSlot(null);
+    sendMessage({ type: 'resign_match', requestId: nextRequestId(), slot });
+  };
+
   const leaveCurrentSlot = () => {
     window.localStorage.removeItem(RESUME_TOKEN_KEY);
     resumeTokenRef.current = null;
@@ -742,6 +798,7 @@ export default function App() {
 
   const viewerUi = getViewerUiState(snapshot, connected);
   const { isLockedViewer, showLobbyOverlay, showPlayerClaims, canClaim, canStart } = viewerUi;
+  const resignableSlots = getResignableSlots(snapshot, connected);
   const canManageAi = connected && (snapshot.phase === 'empty' || snapshot.phase === 'waiting' || snapshot.phase === 'ready');
   const heads = snapshot.game
     ? {
@@ -755,6 +812,12 @@ export default function App() {
   const p2LobbyColors = getLobbySlotColors('p2', snapshot.yourSlot);
   const shouldAnimateArena = !showLobbyOverlay;
   const showTouchControls = snapshot.yourSlot !== null && (snapshot.phase === 'countdown' || snapshot.phase === 'playing');
+
+  useEffect(() => {
+    if (pendingResignSlot && !getResignableSlots(snapshot, connected)[pendingResignSlot]) {
+      setPendingResignSlot(null);
+    }
+  }, [connected, pendingResignSlot, snapshot]);
 
   useEffect(() => {
     if (!shouldAnimateArena) {
@@ -803,29 +866,95 @@ export default function App() {
             <SnakeWordmark className="hud-wordmark" />
           </div>
           <div className="status-row">
-            <div data-testid="connection-card">
-              <span>Server</span>
-              <strong>{connected ? 'Online' : reconnecting ? 'Reconnecting' : 'Offline'}</strong>
-            </div>
             <div data-testid="timer-card">
               <span>Timer</span>
               <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
             </div>
-            <div data-testid="p1-score-card">
-              <span style={{ color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span>
+            <div
+              data-testid="p1-score-card"
+              className={resignableSlots.p1 ? 'match-slot-card is-resignable' : 'match-slot-card'}
+            >
+              {resignableSlots.p1 ? (
+                <button
+                  type="button"
+                  className="hud-name-button"
+                  data-testid="resign-trigger-p1"
+                  style={{ ...HUD_NAME_STYLE, color: p1MatchColors.text }}
+                  onClick={() => setPendingResignSlot((current) => current === 'p1' ? null : 'p1')}
+                >
+                  {getPlayerName(snapshot, 'p1')}
+                </button>
+              ) : (
+                <span className="hud-player-name" style={{ ...HUD_NAME_STYLE, color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span>
+              )}
               <strong data-testid="p1-score" style={{ color: p1MatchColors.text }}>
                 {snapshot.game?.players.p1.respawnRemainingMs
                   ? `Respawn ${Math.ceil(snapshot.game.players.p1.respawnRemainingMs / 1000)}`
                   : snapshot.game?.players.p1.score ?? 0}
               </strong>
+              {pendingResignSlot === 'p1' ? (
+                <div className="hud-name-confirm" data-testid="resign-confirmation-p1">
+                  <button
+                    type="button"
+                    className="danger"
+                    data-testid="resign-confirm-p1"
+                    onClick={() => sendResignMatch('p1')}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    data-testid="resign-cancel-p1"
+                    onClick={() => setPendingResignSlot(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
             </div>
-            <div data-testid="p2-score-card">
-              <span style={{ color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span>
+            <div
+              data-testid="p2-score-card"
+              className={resignableSlots.p2 ? 'match-slot-card is-resignable' : 'match-slot-card'}
+            >
+              {resignableSlots.p2 ? (
+                <button
+                  type="button"
+                  className="hud-name-button"
+                  data-testid="resign-trigger-p2"
+                  style={{ ...HUD_NAME_STYLE, color: p2MatchColors.text }}
+                  onClick={() => setPendingResignSlot((current) => current === 'p2' ? null : 'p2')}
+                >
+                  {getPlayerName(snapshot, 'p2')}
+                </button>
+              ) : (
+                <span className="hud-player-name" style={{ ...HUD_NAME_STYLE, color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span>
+              )}
               <strong data-testid="p2-score" style={{ color: p2MatchColors.text }}>
                 {snapshot.game?.players.p2.respawnRemainingMs
                   ? `Respawn ${Math.ceil(snapshot.game.players.p2.respawnRemainingMs / 1000)}`
                   : snapshot.game?.players.p2.score ?? 0}
               </strong>
+              {pendingResignSlot === 'p2' ? (
+                <div className="hud-name-confirm" data-testid="resign-confirmation-p2">
+                  <button
+                    type="button"
+                    className="danger"
+                    data-testid="resign-confirm-p2"
+                    onClick={() => sendResignMatch('p2')}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    data-testid="resign-cancel-p2"
+                    onClick={() => setPendingResignSlot(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -905,11 +1034,11 @@ export default function App() {
 
         {snapshot.phase === 'finished' ? (
           <div className="overlay" data-testid="finished-overlay">
-            <p className="eyebrow">{snapshot.result?.reason === 'forfeit' ? 'Forfeit' : 'Time Up'}</p>
+            <p className="eyebrow">{getResultEyebrow(snapshot.result)}</p>
             <h2 data-testid="winner-label">{getWinnerLabel(snapshot.result, snapshot)}</h2>
             <div className="controls-grid score-grid">
-              <p style={{ color: p1MatchColors.text }}><span style={{ color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span> {snapshot.game?.players.p1.score ?? 0}</p>
-              <p style={{ color: p2MatchColors.text }}><span style={{ color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span> {snapshot.game?.players.p2.score ?? 0}</p>
+              <p style={{ color: p1MatchColors.text }}><span className="result-player-name" style={{ color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span> {snapshot.game?.players.p1.score ?? 0}</p>
+              <p style={{ color: p2MatchColors.text }}><span className="result-player-name" style={{ color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span> {snapshot.game?.players.p2.score ?? 0}</p>
               <p><span>P1 Head</span> {cellOrDash(heads.p1)}</p>
               <p><span>P2 Head</span> {cellOrDash(heads.p2)}</p>
             </div>
