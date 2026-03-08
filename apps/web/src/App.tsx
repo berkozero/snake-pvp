@@ -410,17 +410,9 @@ function getHudPlayerDetail(snapshot: RoomSnapshotMessage, slot: PlayerId): stri
     return '0';
   }
   if (player.respawnRemainingMs) {
-    return `Respawn ${Math.ceil(player.respawnRemainingMs / 1000)}`;
+    return `Respawning ${Math.ceil(player.respawnRemainingMs / 1000)}`;
   }
   return `${player.score}`;
-}
-
-function getHudPlayerMeta(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
-  const player = snapshot.game?.players[slot];
-  if (player?.respawnRemainingMs) {
-    return 'Re-entry in';
-  }
-  return 'Score';
 }
 
 function normalizeKey(key: string): string {
@@ -584,7 +576,6 @@ export function GameplayHud({
           className={resignableSlots.p1 ? 'match-slot-card is-resignable' : 'match-slot-card'}
           style={{ ['--slot-accent' as string]: p1MatchColors.text }}
         >
-          <span>Player One</span>
           {resignableSlots.p1 ? (
             <button
               type="button"
@@ -601,7 +592,6 @@ export function GameplayHud({
           <strong data-testid="p1-score" style={{ color: p1MatchColors.text }}>
             {getHudPlayerDetail(snapshot, 'p1')}
           </strong>
-          <small>{getHudPlayerMeta(snapshot, 'p1')}</small>
           {pendingResignSlot === 'p1' ? (
             <div className="hud-name-confirm" data-testid="resign-confirmation-p1">
               <button
@@ -624,16 +614,13 @@ export function GameplayHud({
           ) : null}
         </div>
         <div data-testid="timer-card" className="match-timer-card">
-          <span>Round Timer</span>
           <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
-          <small>{snapshot.phase === 'countdown' ? 'Countdown Live' : 'Match Active'}</small>
         </div>
         <div
           data-testid="p2-score-card"
           className={resignableSlots.p2 ? 'match-slot-card is-resignable' : 'match-slot-card'}
           style={{ ['--slot-accent' as string]: p2MatchColors.text }}
         >
-          <span>Player Two</span>
           {resignableSlots.p2 ? (
             <button
               type="button"
@@ -650,7 +637,6 @@ export function GameplayHud({
           <strong data-testid="p2-score" style={{ color: p2MatchColors.text }}>
             {getHudPlayerDetail(snapshot, 'p2')}
           </strong>
-          <small>{getHudPlayerMeta(snapshot, 'p2')}</small>
           {pendingResignSlot === 'p2' ? (
             <div className="hud-name-confirm" data-testid="resign-confirmation-p2">
               <button

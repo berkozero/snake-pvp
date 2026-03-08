@@ -285,13 +285,20 @@ describe('viewer watch mode', () => {
     expect(markup).toContain('data-testid="timer-card"');
     expect(markup).toContain('data-testid="p1-score-card"');
     expect(markup).toContain('data-testid="p2-score-card"');
-    expect(markup).toContain('Countdown Live');
+    expect(markup).not.toContain('Player One');
+    expect(markup).not.toContain('Player Two');
+    expect(markup).not.toContain('Round Timer');
+    expect(markup).not.toContain('Match Active');
+    expect(markup).not.toContain('Score');
+    expect(markup).not.toContain('Re-entry in');
   });
 
   it('keeps resign trigger and confirmation controls inside the live HUD cards', () => {
     const liveMarkup = renderGameplayHud(makeLiveSnapshot());
     expect(liveMarkup).toContain('data-testid="resign-trigger-p1"');
     expect(liveMarkup).not.toContain('data-testid="resign-confirmation-p1"');
+    expect(liveMarkup).toContain('>12<');
+    expect(liveMarkup).not.toContain('>Score<');
 
     const confirmMarkup = renderGameplayHud(makeLiveSnapshot({
       game: {
@@ -325,6 +332,7 @@ describe('viewer watch mode', () => {
     expect(confirmMarkup).toContain('data-testid="resign-confirmation-p1"');
     expect(confirmMarkup).toContain('data-testid="resign-confirm-p1"');
     expect(confirmMarkup).toContain('data-testid="resign-cancel-p1"');
-    expect(confirmMarkup).toContain('Respawn 2');
+    expect(confirmMarkup).toContain('Respawning 2');
+    expect(confirmMarkup).not.toContain('Respawn 2');
   });
 });
