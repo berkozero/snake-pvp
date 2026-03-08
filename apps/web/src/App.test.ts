@@ -1,7 +1,10 @@
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { BOARD_HEIGHT, BOARD_WIDTH } from '@snake/game-core';
 import { PROTOCOL_VERSION, ROOM_ID, type RoomSnapshotMessage } from '@snake/game-core/protocol';
-import App, { getResignableSlots, getResultEyebrow, getStatusMessage, getViewerUiState, getWinnerLabel } from './App';
+import { GameplayHud, getResignableSlots, getResultEyebrow, getStatusMessage, getViewerUiState, getWinnerLabel } from './App';
+import { getMatchPlayerColors } from './playerColors';
 
 function makeSnapshot(overrides: Partial<RoomSnapshotMessage> = {}): RoomSnapshotMessage {
   return {
@@ -22,6 +25,59 @@ function makeSnapshot(overrides: Partial<RoomSnapshotMessage> = {}): RoomSnapsho
     result: null,
     ...overrides,
   };
+}
+
+function makeLiveSnapshot(overrides: Partial<RoomSnapshotMessage> = {}): RoomSnapshotMessage {
+  return makeSnapshot({
+    phase: 'playing',
+    yourSlot: 'p1',
+    slots: {
+      p1: { claimed: true, name: 'Alpha Unit', connected: true, controller: 'human' },
+      p2: { claimed: true, name: 'Bravo Bot', connected: true, controller: 'ai' },
+    },
+    game: {
+      board: { width: BOARD_WIDTH, height: BOARD_HEIGHT },
+      remainingMs: 61_000,
+      countdownMs: 0,
+      food: { x: 8, y: 8 },
+      players: {
+        p1: {
+          alive: true,
+          score: 7,
+          direction: 'right',
+          length: 1,
+          segments: [{ x: 2, y: 2 }],
+          respawnRemainingMs: 0,
+          respawnPreview: null,
+        },
+        p2: {
+          alive: true,
+          score: 12,
+          direction: 'left',
+          length: 1,
+          segments: [{ x: 10, y: 10 }],
+          respawnRemainingMs: 0,
+          respawnPreview: null,
+        },
+      },
+    },
+    ...overrides,
+  });
+}
+
+function renderGameplayHud(snapshot: RoomSnapshotMessage, pendingResignSlot: 'p1' | 'p2' | null = null): string {
+  return renderToStaticMarkup(
+    createElement(GameplayHud, {
+      snapshot,
+      resignableSlots: getResignableSlots(snapshot, true),
+      pendingResignSlot,
+      p1MatchColors: getMatchPlayerColors('p1', snapshot.yourSlot),
+      p2MatchColors: getMatchPlayerColors('p2', snapshot.yourSlot),
+      onToggleResign: () => undefined,
+      onConfirmResign: () => undefined,
+      onCancelResign: () => undefined,
+    }),
+  );
 }
 
 describe('viewer watch mode', () => {
@@ -190,9 +246,85 @@ describe('viewer watch mode', () => {
   });
 
   it('does not render the gameplay connection card in the live HUD', () => {
-    window.localStorage.removeItem('snake-pvp-resume-token');
-    const markup = renderToStaticMarkup(<App />);
+    const markup = renderGameplayHud(makeLiveSnapshot());
 
     expect(markup).not.toContain('data-testid="connection-card"');
+  });
+
+  it('renders the three live HUD cards during countdown', () => {
+    const markup = renderGameplayHud(makeLiveSnapshot({
+      phase: 'countdown',
+      game: {
+        board: { width: BOARD_WIDTH, height: BOARD_HEIGHT },
+        remainingMs: 90_000,
+        countdownMs: 2_400,
+        food: { x: 8, y: 8 },
+        players: {
+          p1: {
+            alive: true,
+            score: 0,
+            direction: 'right',
+            length: 1,
+            segments: [{ x: 2, y: 2 }],
+            respawnRemainingMs: 0,
+            respawnPreview: null,
+          },
+          p2: {
+            alive: true,
+            score: 0,
+            direction: 'left',
+            length: 1,
+            segments: [{ x: 10, y: 10 }],
+            respawnRemainingMs: 0,
+            respawnPreview: null,
+          },
+        },
+      },
+    }));
+
+    expect(markup).toContain('data-testid="timer-card"');
+    expect(markup).toContain('data-testid="p1-score-card"');
+    expect(markup).toContain('data-testid="p2-score-card"');
+    expect(markup).toContain('Countdown Live');
+  });
+
+  it('keeps resign trigger and confirmation controls inside the live HUD cards', () => {
+    const liveMarkup = renderGameplayHud(makeLiveSnapshot());
+    expect(liveMarkup).toContain('data-testid="resign-trigger-p1"');
+    expect(liveMarkup).not.toContain('data-testid="resign-confirmation-p1"');
+
+    const confirmMarkup = renderGameplayHud(makeLiveSnapshot({
+      game: {
+        board: { width: BOARD_WIDTH, height: BOARD_HEIGHT },
+        remainingMs: 41_000,
+        countdownMs: 0,
+        food: { x: 8, y: 8 },
+        players: {
+          p1: {
+            alive: false,
+            score: 7,
+            direction: 'right',
+            length: 1,
+            segments: [{ x: 2, y: 2 }],
+            respawnRemainingMs: 2_000,
+            respawnPreview: null,
+          },
+          p2: {
+            alive: true,
+            score: 12,
+            direction: 'left',
+            length: 1,
+            segments: [{ x: 10, y: 10 }],
+            respawnRemainingMs: 0,
+            respawnPreview: null,
+          },
+        },
+      },
+    }), 'p1');
+
+    expect(confirmMarkup).toContain('data-testid="resign-confirmation-p1"');
+    expect(confirmMarkup).toContain('data-testid="resign-confirm-p1"');
+    expect(confirmMarkup).toContain('data-testid="resign-cancel-p1"');
+    expect(confirmMarkup).toContain('Respawn 2');
   });
 });

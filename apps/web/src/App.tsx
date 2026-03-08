@@ -68,11 +68,6 @@ type PlayerSlotCardProps = {
   onRemoveAi: () => void;
 };
 
-const HUD_NAME_STYLE: CSSProperties = {
-  fontSize: '0.9rem',
-  lineHeight: 1.1,
-};
-
 const LOBBY_NAME_STYLE: CSSProperties = {
   fontSize: '1.3rem',
   lineHeight: 1.05,
@@ -409,6 +404,25 @@ function getPlayerName(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
   return snapshot.slots[slot].name ?? slot.toUpperCase();
 }
 
+function getHudPlayerDetail(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
+  const player = snapshot.game?.players[slot];
+  if (!player) {
+    return '0';
+  }
+  if (player.respawnRemainingMs) {
+    return `Respawn ${Math.ceil(player.respawnRemainingMs / 1000)}`;
+  }
+  return `${player.score}`;
+}
+
+function getHudPlayerMeta(snapshot: RoomSnapshotMessage, slot: PlayerId): string {
+  const player = snapshot.game?.players[slot];
+  if (player?.respawnRemainingMs) {
+    return 'Re-entry in';
+  }
+  return 'Score';
+}
+
 function normalizeKey(key: string): string {
   if (key.startsWith('Arrow')) {
     return key;
@@ -535,6 +549,131 @@ function PlayerSlotCard({
         </button>
       ) : null}
     </article>
+  );
+}
+
+type GameplayHudProps = {
+  snapshot: RoomSnapshotMessage;
+  resignableSlots: ResignableSlots;
+  pendingResignSlot: PlayerId | null;
+  p1MatchColors: ReturnType<typeof getMatchPlayerColors>;
+  p2MatchColors: ReturnType<typeof getMatchPlayerColors>;
+  onToggleResign: (slot: PlayerId) => void;
+  onConfirmResign: (slot: PlayerId) => void;
+  onCancelResign: () => void;
+};
+
+export function GameplayHud({
+  snapshot,
+  resignableSlots,
+  pendingResignSlot,
+  p1MatchColors,
+  p2MatchColors,
+  onToggleResign,
+  onConfirmResign,
+  onCancelResign,
+}: GameplayHudProps) {
+  return (
+    <section className="hud-card" data-testid="hud-card">
+      <div className="hud-brand">
+        <SnakeWordmark className="hud-wordmark" />
+      </div>
+      <div className="status-row">
+        <div
+          data-testid="p1-score-card"
+          className={resignableSlots.p1 ? 'match-slot-card is-resignable' : 'match-slot-card'}
+          style={{ ['--slot-accent' as string]: p1MatchColors.text }}
+        >
+          <span>Player One</span>
+          {resignableSlots.p1 ? (
+            <button
+              type="button"
+              className="hud-name-button"
+              data-testid="resign-trigger-p1"
+              style={{ color: p1MatchColors.text }}
+              onClick={() => onToggleResign('p1')}
+            >
+              {getPlayerName(snapshot, 'p1')}
+            </button>
+          ) : (
+            <span className="hud-player-name" style={{ color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span>
+          )}
+          <strong data-testid="p1-score" style={{ color: p1MatchColors.text }}>
+            {getHudPlayerDetail(snapshot, 'p1')}
+          </strong>
+          <small>{getHudPlayerMeta(snapshot, 'p1')}</small>
+          {pendingResignSlot === 'p1' ? (
+            <div className="hud-name-confirm" data-testid="resign-confirmation-p1">
+              <button
+                type="button"
+                className="danger"
+                data-testid="resign-confirm-p1"
+                onClick={() => onConfirmResign('p1')}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                data-testid="resign-cancel-p1"
+                onClick={onCancelResign}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div data-testid="timer-card" className="match-timer-card">
+          <span>Round Timer</span>
+          <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
+          <small>{snapshot.phase === 'countdown' ? 'Countdown Live' : 'Match Active'}</small>
+        </div>
+        <div
+          data-testid="p2-score-card"
+          className={resignableSlots.p2 ? 'match-slot-card is-resignable' : 'match-slot-card'}
+          style={{ ['--slot-accent' as string]: p2MatchColors.text }}
+        >
+          <span>Player Two</span>
+          {resignableSlots.p2 ? (
+            <button
+              type="button"
+              className="hud-name-button"
+              data-testid="resign-trigger-p2"
+              style={{ color: p2MatchColors.text }}
+              onClick={() => onToggleResign('p2')}
+            >
+              {getPlayerName(snapshot, 'p2')}
+            </button>
+          ) : (
+            <span className="hud-player-name" style={{ color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span>
+          )}
+          <strong data-testid="p2-score" style={{ color: p2MatchColors.text }}>
+            {getHudPlayerDetail(snapshot, 'p2')}
+          </strong>
+          <small>{getHudPlayerMeta(snapshot, 'p2')}</small>
+          {pendingResignSlot === 'p2' ? (
+            <div className="hud-name-confirm" data-testid="resign-confirmation-p2">
+              <button
+                type="button"
+                className="danger"
+                data-testid="resign-confirm-p2"
+                onClick={() => onConfirmResign('p2')}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                data-testid="resign-cancel-p2"
+                onClick={onCancelResign}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -861,103 +1000,16 @@ export default function App() {
   return (
     <main className="shell" data-phase={snapshot.phase}>
       {!showLobbyOverlay ? (
-        <section className="hud-card" data-testid="hud-card">
-          <div className="hud-brand">
-            <SnakeWordmark className="hud-wordmark" />
-          </div>
-          <div className="status-row">
-            <div data-testid="timer-card">
-              <span>Timer</span>
-              <strong data-testid="timer-value">{formatTime(snapshot.game?.remainingMs ?? 0)}</strong>
-            </div>
-            <div
-              data-testid="p1-score-card"
-              className={resignableSlots.p1 ? 'match-slot-card is-resignable' : 'match-slot-card'}
-            >
-              {resignableSlots.p1 ? (
-                <button
-                  type="button"
-                  className="hud-name-button"
-                  data-testid="resign-trigger-p1"
-                  style={{ ...HUD_NAME_STYLE, color: p1MatchColors.text }}
-                  onClick={() => setPendingResignSlot((current) => current === 'p1' ? null : 'p1')}
-                >
-                  {getPlayerName(snapshot, 'p1')}
-                </button>
-              ) : (
-                <span className="hud-player-name" style={{ ...HUD_NAME_STYLE, color: p1MatchColors.text }}>{getPlayerName(snapshot, 'p1')}</span>
-              )}
-              <strong data-testid="p1-score" style={{ color: p1MatchColors.text }}>
-                {snapshot.game?.players.p1.respawnRemainingMs
-                  ? `Respawn ${Math.ceil(snapshot.game.players.p1.respawnRemainingMs / 1000)}`
-                  : snapshot.game?.players.p1.score ?? 0}
-              </strong>
-              {pendingResignSlot === 'p1' ? (
-                <div className="hud-name-confirm" data-testid="resign-confirmation-p1">
-                  <button
-                    type="button"
-                    className="danger"
-                    data-testid="resign-confirm-p1"
-                    onClick={() => sendResignMatch('p1')}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    data-testid="resign-cancel-p1"
-                    onClick={() => setPendingResignSlot(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            <div
-              data-testid="p2-score-card"
-              className={resignableSlots.p2 ? 'match-slot-card is-resignable' : 'match-slot-card'}
-            >
-              {resignableSlots.p2 ? (
-                <button
-                  type="button"
-                  className="hud-name-button"
-                  data-testid="resign-trigger-p2"
-                  style={{ ...HUD_NAME_STYLE, color: p2MatchColors.text }}
-                  onClick={() => setPendingResignSlot((current) => current === 'p2' ? null : 'p2')}
-                >
-                  {getPlayerName(snapshot, 'p2')}
-                </button>
-              ) : (
-                <span className="hud-player-name" style={{ ...HUD_NAME_STYLE, color: p2MatchColors.text }}>{getPlayerName(snapshot, 'p2')}</span>
-              )}
-              <strong data-testid="p2-score" style={{ color: p2MatchColors.text }}>
-                {snapshot.game?.players.p2.respawnRemainingMs
-                  ? `Respawn ${Math.ceil(snapshot.game.players.p2.respawnRemainingMs / 1000)}`
-                  : snapshot.game?.players.p2.score ?? 0}
-              </strong>
-              {pendingResignSlot === 'p2' ? (
-                <div className="hud-name-confirm" data-testid="resign-confirmation-p2">
-                  <button
-                    type="button"
-                    className="danger"
-                    data-testid="resign-confirm-p2"
-                    onClick={() => sendResignMatch('p2')}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    data-testid="resign-cancel-p2"
-                    onClick={() => setPendingResignSlot(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
+        <GameplayHud
+          snapshot={snapshot}
+          resignableSlots={resignableSlots}
+          pendingResignSlot={pendingResignSlot}
+          p1MatchColors={p1MatchColors}
+          p2MatchColors={p2MatchColors}
+          onToggleResign={(slot) => setPendingResignSlot((current) => current === slot ? null : slot)}
+          onConfirmResign={sendResignMatch}
+          onCancelResign={() => setPendingResignSlot(null)}
+        />
       ) : null}
 
       {showLobbyOverlay ? (
